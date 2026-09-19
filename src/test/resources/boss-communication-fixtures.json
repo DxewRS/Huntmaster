@@ -1,0 +1,443 @@
+[
+  {
+    "boss": "Vardorvis",
+    "counterNames": [
+      "Vardorvis"
+    ],
+    "botEnabled": true
+  },
+  {
+    "boss": "Duke Sucellus",
+    "counterNames": [
+      "Duke Sucellus"
+    ],
+    "botEnabled": true
+  },
+  {
+    "boss": "The Leviathan",
+    "counterNames": [
+      "Leviathan"
+    ],
+    "botEnabled": true
+  },
+  {
+    "boss": "The Whisperer",
+    "counterNames": [
+      "Whisperer"
+    ],
+    "botEnabled": true
+  },
+  {
+    "boss": "Zulrah",
+    "counterNames": [
+      "Zulrah"
+    ],
+    "botEnabled": true
+  },
+  {
+    "boss": "Vorkath",
+    "counterNames": [
+      "Vorkath"
+    ],
+    "botEnabled": true
+  },
+  {
+    "boss": "Phantom Muspah",
+    "counterNames": [
+      "Phantom Muspah"
+    ],
+    "botEnabled": true
+  },
+  {
+    "boss": "Phosani's Nightmare",
+    "counterNames": [
+      "Phosani's Nightmare"
+    ],
+    "botEnabled": true
+  },
+  {
+    "boss": "Amoxliatl",
+    "counterNames": [
+      "Amoxliatl"
+    ],
+    "botEnabled": true
+  },
+  {
+    "boss": "The Gauntlet",
+    "counterNames": [
+      "Gauntlet"
+    ],
+    "botEnabled": true
+  },
+  {
+    "boss": "Doom of Mokhaiotl",
+    "counterNames": [],
+    "botEnabled": true
+  },
+  {
+    "boss": "Obor",
+    "counterNames": [
+      "Obor"
+    ],
+    "botEnabled": true
+  },
+  {
+    "boss": "Bryophyta",
+    "counterNames": [
+      "Bryophyta"
+    ],
+    "botEnabled": true
+  },
+  {
+    "boss": "Moons of Peril",
+    "counterNames": [
+      "Lunar Chest",
+      "Lunar Chests"
+    ],
+    "botEnabled": true
+  },
+  {
+    "boss": "Barrows Brothers",
+    "counterNames": [
+      "Barrows chest",
+      "Barrows Chests"
+    ],
+    "botEnabled": true
+  },
+  {
+    "boss": "Brutus",
+    "counterNames": [
+      "Brutus"
+    ],
+    "botEnabled": true
+  },
+  {
+    "boss": "Deranged Archaeologist",
+    "counterNames": [
+      "Deranged Archaeologist"
+    ],
+    "botEnabled": true
+  },
+  {
+    "boss": "Maggot King",
+    "counterNames": [
+      "Maggot King"
+    ],
+    "botEnabled": true
+  },
+  {
+    "boss": "Mad Angel",
+    "counterNames": [
+      "Mad Angel"
+    ],
+    "botEnabled": true
+  },
+  {
+    "boss": "The Corrupted Gauntlet",
+    "counterNames": [
+      "Corrupted Gauntlet"
+    ],
+    "botEnabled": true
+  },
+  {
+    "boss": "Hespori",
+    "counterNames": [
+      "Hespori"
+    ],
+    "botEnabled": true
+  },
+  {
+    "boss": "Skotizo",
+    "counterNames": [
+      "Skotizo"
+    ],
+    "botEnabled": true
+  },
+  {
+    "boss": "The Mimic",
+    "counterNames": [
+      "Mimic"
+    ],
+    "botEnabled": true
+  },
+  {
+    "boss": "TzTok-Jad",
+    "counterNames": [
+      "TzTok-Jad"
+    ],
+    "botEnabled": false
+  },
+  {
+    "boss": "TzKal-Zuk",
+    "counterNames": [
+      "TzKal-Zuk"
+    ],
+    "botEnabled": false
+  },
+  {
+    "boss": "Sol Heredit",
+    "counterNames": [
+      "Sol Heredit"
+    ],
+    "botEnabled": false
+  },
+  {
+    "boss": "General Graardor",
+    "counterNames": [
+      "General Graardor"
+    ],
+    "botEnabled": true
+  },
+  {
+    "boss": "Commander Zilyana",
+    "counterNames": [
+      "Commander Zilyana"
+    ],
+    "botEnabled": true
+  },
+  {
+    "boss": "K'ril Tsutsaroth",
+    "counterNames": [
+      "K'ril Tsutsaroth"
+    ],
+    "botEnabled": true
+  },
+  {
+    "boss": "Kree'arra",
+    "counterNames": [
+      "Kree'arra"
+    ],
+    "botEnabled": true
+  },
+  {
+    "boss": "Corporeal Beast",
+    "counterNames": [
+      "Corporeal Beast"
+    ],
+    "botEnabled": true
+  },
+  {
+    "boss": "Sarachnis",
+    "counterNames": [
+      "Sarachnis"
+    ],
+    "botEnabled": true
+  },
+  {
+    "boss": "Giant Mole",
+    "counterNames": [
+      "Giant Mole"
+    ],
+    "botEnabled": true
+  },
+  {
+    "boss": "Kalphite Queen",
+    "counterNames": [
+      "Kalphite Queen"
+    ],
+    "botEnabled": true
+  },
+  {
+    "boss": "Dagannoth Kings",
+    "counterNames": [
+      "Dagannoth Rex",
+      "Dagannoth Prime",
+      "Dagannoth Supreme"
+    ],
+    "botEnabled": true
+  },
+  {
+    "boss": "The Hueycoatl",
+    "counterNames": [
+      "Hueycoatl"
+    ],
+    "botEnabled": true
+  },
+  {
+    "boss": "The Nightmare",
+    "counterNames": [
+      "Nightmare"
+    ],
+    "botEnabled": true
+  },
+  {
+    "boss": "Yama",
+    "counterNames": [
+      "Yama"
+    ],
+    "botEnabled": true
+  },
+  {
+    "boss": "Scurrius",
+    "counterNames": [
+      "Scurrius"
+    ],
+    "botEnabled": true
+  },
+  {
+    "boss": "Wintertodt",
+    "counterNames": [
+      "Wintertodt"
+    ],
+    "botEnabled": true
+  },
+  {
+    "boss": "Tempoross",
+    "counterNames": [
+      "Tempoross"
+    ],
+    "botEnabled": true
+  },
+  {
+    "boss": "Zalcano",
+    "counterNames": [
+      "Zalcano"
+    ],
+    "botEnabled": true
+  },
+  {
+    "boss": "Royal Titans",
+    "counterNames": [],
+    "botEnabled": true
+  },
+  {
+    "boss": "Nex",
+    "counterNames": [
+      "Nex"
+    ],
+    "botEnabled": true
+  },
+  {
+    "boss": "Abyssal Sire",
+    "counterNames": [
+      "Abyssal Sire"
+    ],
+    "botEnabled": true
+  },
+  {
+    "boss": "Alchemical Hydra",
+    "counterNames": [
+      "Alchemical Hydra"
+    ],
+    "botEnabled": true
+  },
+  {
+    "boss": "Araxxor",
+    "counterNames": [
+      "Araxxor"
+    ],
+    "botEnabled": true
+  },
+  {
+    "boss": "Cerberus",
+    "counterNames": [
+      "Cerberus"
+    ],
+    "botEnabled": true
+  },
+  {
+    "boss": "Grotesque Guardians",
+    "counterNames": [
+      "Grotesque Guardians"
+    ],
+    "botEnabled": true
+  },
+  {
+    "boss": "Kraken",
+    "counterNames": [
+      "Kraken"
+    ],
+    "botEnabled": true
+  },
+  {
+    "boss": "Thermonuclear Smoke Devil",
+    "counterNames": [
+      "Thermonuclear Smoke Devil"
+    ],
+    "botEnabled": true
+  },
+  {
+    "boss": "Shellbane Gryphon",
+    "counterNames": [
+      "Shellbane Gryphon"
+    ],
+    "botEnabled": true
+  },
+  {
+    "boss": "Artio",
+    "counterNames": [
+      "Artio"
+    ],
+    "botEnabled": false
+  },
+  {
+    "boss": "Callisto",
+    "counterNames": [
+      "Callisto"
+    ],
+    "botEnabled": false
+  },
+  {
+    "boss": "Calvar'ion",
+    "counterNames": [
+      "Calvar'ion"
+    ],
+    "botEnabled": false
+  },
+  {
+    "boss": "Vet'ion",
+    "counterNames": [
+      "Vet'ion"
+    ],
+    "botEnabled": false
+  },
+  {
+    "boss": "Spindel",
+    "counterNames": [
+      "Spindel"
+    ],
+    "botEnabled": false
+  },
+  {
+    "boss": "Venenatis",
+    "counterNames": [
+      "Venenatis"
+    ],
+    "botEnabled": false
+  },
+  {
+    "boss": "Chaos Elemental",
+    "counterNames": [
+      "Chaos Elemental"
+    ],
+    "botEnabled": false
+  },
+  {
+    "boss": "Chaos Fanatic",
+    "counterNames": [
+      "Chaos Fanatic"
+    ],
+    "botEnabled": false
+  },
+  {
+    "boss": "Crazy Archaeologist",
+    "counterNames": [
+      "Crazy Archaeologist"
+    ],
+    "botEnabled": false
+  },
+  {
+    "boss": "King Black Dragon",
+    "counterNames": [
+      "King Black Dragon"
+    ],
+    "botEnabled": true
+  },
+  {
+    "boss": "Scorpia",
+    "counterNames": [
+      "Scorpia"
+    ],
+    "botEnabled": false
+  }
+]

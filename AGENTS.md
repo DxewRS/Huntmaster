@@ -50,7 +50,7 @@
 
 ## Plugin Setup & Packaging
 
-- Rename everything from the template. Do not leave `com.example`, `ExamplePlugin`, `ExampleConfig`, or `example` as the config group. Rename the package path, class names, config group, `build.gradle` group, `settings.gradle` project name, and `runelite-plugin.properties`.
+- Rename everything from the template. Do not leave `com.example`, `ExamplePlugin`, `HuntmasterConfig`, or `example` as the config group. Rename the package path, class names, config group, `build.gradle` group, `settings.gradle` project name, and `runelite-plugin.properties`.
 - Do not include a `META-INF/services/net.runelite.client.plugins.Plugin` file.
 - Do not commit build artifacts — no `.class` files, `out/` directories, or `.tmp` directories.
 - `build.gradle` must target Java 11** and match the structure of the example-plugin template.
@@ -153,7 +153,8 @@ New high-end PvM boss plugins are not accepted as a blanket policy.
 
 ## Data & Privacy Restrictions
 
-- No exposing player information over HTTP
+- Huntmaster-specific authorization: the plugin may send the participating player's own RuneScape in-game name, Huntmaster assignment identifier, and relevant KC/encounter evidence to the Huntmaster Discord Bot through its HTTP API. The owner explicitly authorized this integration and the inclusion of RuneScape in-game names. This exception permits the existing local development connection; it does not authorize publicly exposing player data, collecting unrelated players' information, or transmitting account credentials.
+- This is an owner-authorized project instruction, not a statement of RuneLite Plugin Hub policy or approval. Verify official requirements separately before public distribution. Owner override (2026-09-17): enabling the Huntmaster RuneLite Plugin enables its bot connection and encounter evidence collection, with no separate public consent request or feature toggle. Users stop these features by disabling the plugin. This overrides the project-specific separate-toggle requirement; it does not establish official Plugin Hub acceptance.
 - No crowdsourcing data about other players (locations, gear, names, etc.)
 - No credential manager plugins that stores account credentials
 

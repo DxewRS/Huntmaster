@@ -1,13 +1,14 @@
-package com.example;
+package com.huntmaster;
 
 import net.runelite.client.RuneLite;
 import net.runelite.client.externalplugins.ExternalPluginManager;
 
-public class ExamplePluginTest
+@SuppressWarnings("unchecked")
+public class HuntmasterPluginTest
 {
 	public static void main(String[] args) throws Exception
 	{
-		ExternalPluginManager.loadBuiltin(ExamplePlugin.class);
+		ExternalPluginManager.loadBuiltin(HuntmasterPlugin.class);
 		RuneLite.main(args);
 	}
 }

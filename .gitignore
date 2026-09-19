@@ -1,5 +1,13 @@
 .gradle
+.env
+.env.*
+*.log
+*.db
+*.db-shm
+*.db-wal
 build
+build-backup*/
+*.class
 .idea/
 .project
 .settings/

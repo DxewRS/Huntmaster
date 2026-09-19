@@ -14,7 +14,7 @@ repositories {
 }
 
 def runeLiteVersion = 'latest.release'
-def pluginMainClass = 'com.example.ExamplePluginTest'
+def pluginMainClass = 'com.huntmaster.HuntmasterPluginTest'
 
 dependencies {
 	compileOnly group: 'net.runelite', name:'client', version: runeLiteVersion
@@ -27,7 +27,7 @@ dependencies {
 	testImplementation group: 'net.runelite', name:'jshell', version: runeLiteVersion
 }
 
-group = 'com.example'
+group = 'com.huntmaster'
 
 tasks.withType(JavaCompile).configureEach {
 	options.encoding = 'UTF-8'
@@ -38,6 +38,15 @@ tasks.register('run', JavaExec) {
 	classpath = sourceSets.test.runtimeClasspath
 	mainClass = pluginMainClass
 
+	jvmArgs "-ea"
+	// Local development only; public Plugin Hub launches do not set this flag.
+	systemProperty 'huntmaster.developmentMode', 'true'
+	args "--developer-mode", "--debug"
+}
+
+tasks.register('runPublic', JavaExec) {
+	classpath = sourceSets.test.runtimeClasspath
+	mainClass = pluginMainClass
 	jvmArgs "-ea"
 	args "--developer-mode", "--debug"
 }
