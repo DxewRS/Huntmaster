@@ -34,6 +34,13 @@ tasks.withType(JavaCompile).configureEach {
 	options.release.set(11)
 }
 
+tasks.withType(Test).configureEach {
+	// Exercise RuneLite's real directory migration without touching a player's data.
+	def testHome = layout.buildDirectory.dir('test-user-home').get().asFile.absolutePath
+	systemProperty 'user.home', testHome
+	systemProperty 'huntmaster.testHome', testHome
+}
+
 tasks.register('run', JavaExec) {
 	classpath = sourceSets.test.runtimeClasspath
 	mainClass = pluginMainClass

@@ -1,25 +1,43 @@
 package com.huntmaster;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.*;
+import java.nio.file.AtomicMoveNotSupportedException;
+import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.function.Consumer;
 import lombok.extern.slf4j.Slf4j;
+import net.runelite.client.util.Filepath;
 
 /** Local observed totals, never credits. All production disk access runs on one worker. */
 @Slf4j
 final class KcBaselineStore
 {
-    private final Path directory;
+    @FunctionalInterface
+    interface DirectorySupplier
+    {
+        Filepath get() throws IOException;
+    }
+
+    private final DirectorySupplier directorySupplier;
+    // Resolved lazily on the worker: getPluginDirectory may migrate legacy data.
+    private Filepath directory;
     private final ExecutorService worker = Executors.newSingleThreadExecutor(r -> {
         Thread thread = new Thread(r, "huntmaster-kc-baselines");
         thread.setDaemon(true);
         return thread;
     });
 
-    KcBaselineStore(Path directory) { this.directory = directory; }
+    KcBaselineStore(DirectorySupplier directorySupplier) { this.directorySupplier = directorySupplier; }
+
+    private Filepath directory() throws IOException
+    {
+        if (directory == null) directory = directorySupplier.get();
+        return directory;
+    }
 
     void load(String profile, Collection<String> bosses, Consumer<Map<String, Integer>> callback)
     {
@@ -45,10 +63,17 @@ final class KcBaselineStore
 
     Integer read(String profile, String boss) throws IOException
     {
-        Path file = file(profile, boss);
-        if (!Files.exists(file)) return null;
-        if (Files.size(file) > 16) throw new IOException("Invalid checkpoint size");
-        int total = Integer.parseInt(Files.readString(file, StandardCharsets.UTF_8).trim());
+        Filepath file = file(profile, boss);
+        if (!file.exists()) return null;
+        if (file.size() > 16) throw new IOException("Invalid checkpoint size");
+        byte[] bytes;
+        try (InputStream input = file.openInputStream())
+        {
+            // Bound the read even if another process changes the file after size().
+            bytes = input.readNBytes(17);
+        }
+        if (bytes.length > 16) throw new IOException("Invalid checkpoint size");
+        int total = Integer.parseInt(new String(bytes, StandardCharsets.UTF_8).trim());
         if (total < 0) throw new IOException("Invalid checkpoint total");
         return total;
     }
@@ -56,18 +81,19 @@ final class KcBaselineStore
     void write(String profile, String boss, int total) throws IOException
     {
         if (total < 0) throw new IllegalArgumentException("Invalid checkpoint total");
-        Files.createDirectories(directory);
-        Path destination = file(profile, boss);
-        Path temporary = Files.createTempFile(directory, "baseline-", ".tmp");
+        Filepath directory = directory();
+        directory.createDirectories();
+        Filepath destination = file(profile, boss);
+        Filepath temporary = directory.createTempFile("baseline-", ".tmp");
         try
         {
-            Files.writeString(temporary, Integer.toString(total), StandardCharsets.UTF_8);
-            try (java.nio.channels.FileChannel channel = java.nio.channels.FileChannel.open(temporary, StandardOpenOption.WRITE))
+            temporary.write(Integer.toString(total));
+            try (java.nio.channels.FileChannel channel = temporary.openFileChannel(StandardOpenOption.WRITE))
             { channel.force(true); }
-            try { Files.move(temporary, destination, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING); }
-            catch (AtomicMoveNotSupportedException ex) { Files.move(temporary, destination, StandardCopyOption.REPLACE_EXISTING); }
+            try { temporary.moveTo(destination, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING); }
+            catch (AtomicMoveNotSupportedException ex) { temporary.moveTo(destination, StandardCopyOption.REPLACE_EXISTING); }
         }
-        finally { Files.deleteIfExists(temporary); }
+        finally { temporary.deleteIfExists(); }
     }
 
     static Integer latest(Integer saved, Integer observed)
@@ -77,10 +103,10 @@ final class KcBaselineStore
         return Math.max(saved, observed);
     }
 
-    private Path file(String profile, String boss)
+    private Filepath file(String profile, String boss) throws IOException
     {
         String key = Base64.getUrlEncoder().withoutPadding().encodeToString((profile + "\n" + boss).getBytes(StandardCharsets.UTF_8));
-        return directory.resolve(key + ".kc");
+        return directory().joinSegment(key + ".kc");
     }
 
     void close() { worker.shutdownNow(); }

@@ -53,6 +53,8 @@ import net.runelite.client.plugins.PluginDescriptor;
 @Slf4j
 @PluginDescriptor(
 		name = "Huntmaster",
+		internalName = "huntmaster",
+		legacyDataDirectory = "huntmaster",
 		description = "Exclusively for Bosscape's Huntmaster Discord Bot, used to verify bossing kills."
 )
 public class HuntmasterPlugin extends Plugin
@@ -306,7 +308,7 @@ public class HuntmasterPlugin extends Plugin
 		{
 			log.warn("Huntmaster bot HTTPS endpoint is not configured; public communication is unavailable");
 		}
-		baselineStore = new KcBaselineStore(net.runelite.client.RuneLite.RUNELITE_DIR.toPath().resolve("huntmaster/kc-baselines"));
+		baselineStore = createBaselineStore();
 		observedBaselines.clear();
 		baselineProfile = null;
 		genericObservationDetector = null;
@@ -2662,6 +2664,11 @@ public void onRuneScapeProfileChanged(
 				markConnectionFailure();
 			}
 		});
+	}
+
+	KcBaselineStore createBaselineStore()
+	{
+		return new KcBaselineStore(() -> getPluginDirectory().join("kc-baselines"));
 	}
 
 	private Integer baselineWithCheckpoint(BossDetector detector, Integer saved)

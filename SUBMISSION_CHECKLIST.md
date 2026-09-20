@@ -1,5 +1,12 @@
 # Submission checklist - 2026-09-18
 
+## Reviewer correction - September 19, 2026
+
+- Local file operations converted to RuneLite `Filepath`, with lazy worker-side directory initialization and built-in legacy-directory migration.
+- Java 11 build and 89 isolated JUnit tests passed against RuneLite 1.12.39; real-player data was not touched.
+- Owner confirmed the requested in-game checkpoint/restart check on September 19, 2026. The submitted commit/marker has not been updated.
+- See [FILEPATH_REVIEW.md](FILEPATH_REVIEW.md) for migration behavior, test evidence, rollback considerations and the remaining submission steps.
+
 ## Prepared locally
 
 - Own-account data disclosure and current keyless registration instructions.
