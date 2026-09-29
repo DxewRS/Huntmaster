@@ -68,7 +68,7 @@ public class HuntmasterPlugin extends Plugin
 			|| client.getGameState() != GameState.LOGGED_IN || player == null || assignmentId == null) return;
 		ServerVerification.Poll poll = serverVerification.begin(player.getName(), assignmentId, System.currentTimeMillis());
 		if (poll == null) return;
-		HttpUrl url = HttpUrl.parse(HUNTMASTER_API_BASE_URL + "/api/runelite/verification-status").newBuilder()
+		HttpUrl url = HttpUrl.get(HUNTMASTER_API_BASE_URL + "/api/runelite/verification-status").newBuilder()
 			.addQueryParameter("rsn", poll.rsn).addQueryParameter("session", poll.session).build();
 		enqueueRequest(new Request.Builder().url(url).header("Cache-Control", "no-cache").build(), (status, body) ->
 		{
@@ -101,7 +101,7 @@ public class HuntmasterPlugin extends Plugin
 			if (Boolean.parseBoolean(configManager.getConfiguration(HUNTMASTER_CONFIG_GROUP, activity.configKey()))) selected.add(activity.id);
 		RecruitmentNotifications.Poll poll = recruitmentNotifications.begin(player.getName(), selected, System.currentTimeMillis());
 		if (poll == null) return;
-		HttpUrl.Builder url = HttpUrl.parse(HUNTMASTER_API_BASE_URL + "/api/runelite/recruitment").newBuilder()
+		HttpUrl.Builder url = HttpUrl.get(HUNTMASTER_API_BASE_URL + "/api/runelite/recruitment").newBuilder()
 			.addQueryParameter("rsn", poll.rsn);
 		if (poll.cursor != null) url.addQueryParameter("cursor", poll.cursor);
 		enqueueRequest(new Request.Builder().url(url.build()).header("Cache-Control", "no-cache").build(), (status, body) ->
@@ -808,7 +808,7 @@ public void onRuneScapeProfileChanged(
 
 		BossDetector generic = genericObservationDetector();
 		Integer genericTotal = generic == null ? null : GenericKcRouter.parse(message, generic.getName());
-		if (genericTotal != null)
+		if (generic != null && genericTotal != null)
 		{
 			Integer previous = generic.getLastKc();
 			observeCounter(generic, EncounterObservation.CounterSource.KC_MESSAGE, previous, genericTotal);
@@ -1760,7 +1760,7 @@ public void onRuneScapeProfileChanged(
 		}
 		String rsn = player.getName();
 		assignmentInFlight = true;
-		HttpUrl url = HttpUrl.parse(HUNTMASTER_API_BASE_URL + "/api/runelite/assignment")
+		HttpUrl url = HttpUrl.get(HUNTMASTER_API_BASE_URL + "/api/runelite/assignment")
 				.newBuilder().addQueryParameter("rsn", rsn).build();
 		enqueueRequest(new Request.Builder().url(url).header("Cache-Control", "no-cache").build(), (status, body) ->
 		{
@@ -1868,7 +1868,7 @@ public void onRuneScapeProfileChanged(
 			if (detector.getDetectorType() == BossDetectorType.STANDARD_NPC) keys.add(detector.getProfileKey());
 		baselineStore.load(profile, keys, totals -> clientThread.invokeLater(() -> {
 			if (!running || lifecycle != session || !java.util.Objects.equals(profile, configManager.getRSProfileKey())) return;
-			totals.forEach((key, total) -> observedBaselines.merge(key, total, Math::max));
+			totals.forEach((key, total) -> observedBaselines.merge(key, total, KcBaselineStore::latest));
 			for (BossDetector detector : bossDetectors)
 			{
 				if (detector.getDetectorType() != BossDetectorType.STANDARD_NPC) continue;
@@ -1969,7 +1969,7 @@ public void onRuneScapeProfileChanged(
 		if (!canTrackNewKills()) { assignedTotalTracker.clear(); return; }
 		BossDetector detector = genericObservationDetector();
 		Integer varp = detector == null ? null : SpecialEncounterTotals.varp(detector.getName());
-		if (varp == null || !canObserve(detector)) { assignedTotalTracker.clear(); return; }
+		if (detector == null || varp == null || !canObserve(detector)) { assignedTotalTracker.clear(); return; }
 		int total = client.getVarpValue(varp);
 		Integer previous = assignedTotalTracker.changed(client.getLocalPlayer().getName() + ":" + assignmentId + ":" + detector.getName(), total, client.getTickCount());
 		if (previous == null) return;

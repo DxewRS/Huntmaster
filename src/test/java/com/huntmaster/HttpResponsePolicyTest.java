@@ -21,9 +21,11 @@ public class HttpResponsePolicyTest
   try(ResponseBody body=ResponseBody.create(null,"x".repeat(HttpResponsePolicy.MAX_RESPONSE_BYTES+1))){
    try{HttpResponsePolicy.read(body);fail();}catch(IOException expected){}
   }
-  try(ResponseBody body=new ResponseBody(){
-   final Buffer buffer=new Buffer().writeUtf8("x".repeat(HttpResponsePolicy.MAX_RESPONSE_BYTES+1));
+  try(Buffer buffer=new Buffer()){
+   buffer.write(new byte[HttpResponsePolicy.MAX_RESPONSE_BYTES+1]);
+   try(ResponseBody body=new ResponseBody(){
    public MediaType contentType(){return null;}public long contentLength(){return -1;}public BufferedSource source(){return buffer;}
-  }){try{HttpResponsePolicy.read(body);fail();}catch(IOException expected){}}
+   }){try{HttpResponsePolicy.read(body);fail();}catch(IOException expected){}}
+  }
  }
 }
