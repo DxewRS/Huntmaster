@@ -63,6 +63,8 @@ final class EncounterCapture
 	void primary(BossDetector d, String rsn, String assignment, int tick, long now, EncounterObservation.SignalKind kind)
 	{
 		if (current != null && primarySeen && primaryTick == tick && (rsn + ":" + assignment + ":" + d.getName()).equals(context)) return;
+		// A new encounter must not inherit unconsumed support from a prior kill.
+		history.clear();
 		if (current != null && (primarySeen || verdict)) current = null;
 		ensure(d, rsn, assignment, tick, now).recordPrimary(kind, tick);
 		history.add(context, tick, now, kind);
@@ -82,7 +84,8 @@ final class EncounterCapture
 	void loot(BossDetector d, String rsn, String assignment, int tick, long now)
 	{
 		EncounterObservation target = ensure(d, rsn, assignment, tick, now);
-		history.add(context, tick, now, EncounterObservation.SignalKind.LOOT);
+		// Once a counter is attached, subsequent loot belongs to that record only.
+		if (counterTotal == null) history.add(context, tick, now, EncounterObservation.SignalKind.LOOT);
 		target.recordLoot(tick, records.size() == 1 ? EncounterObservation.LootAttribution.MATCHING_ENCOUNTER
 			: EncounterObservation.LootAttribution.UNCERTAIN);
 	}

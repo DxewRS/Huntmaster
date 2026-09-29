@@ -12,6 +12,8 @@ Saved reports and counter checkpoints remain in RuneLite configuration/storage w
 
 RSN matching checks registration and membership, not sender authentication or cryptographic game-account ownership. Kill reports still undergo the bot's evidence, assignment and duplicate checks. This plugin remains in beta; different bosses have different verification maturity.
 
+Bot verification-status requests send your RSN and a random warning-session ID. This session is renewed on context changes and is not a permanent device identifier. Registration or membership failures preserve saved reports for later retries. Collection pauses at the report backlog thresholds described in the README; already captured evidence is retained.
+
 The bot also queries public HiScores to corroborate credited totals and stores integrity receipts, baselines/published totals, review flags and staff decisions for audit. These records currently persist beyond encounter-report retention. This adds no extra plugin telemetry; ordinary progression does not wait for publication. High-value reward verification requires corroboration or recorded staff approval under a separate reward policy.
 
 Optional recruitment notifications poll `/api/runelite/recruitment` while logged in with at least one activity selected. Requests contain your RSN and an ephemeral feed cursor. Activity preferences stay in RuneLite configuration and are not sent to the bot. Responses contain only recent ping IDs and queue activity IDs, not leaders, member names or chat. No cursor or missed-message backlog is persisted locally. Turning all activity checkboxes off stops these extra requests. Existing assignment/report communication follows the plugin enable switch as before.

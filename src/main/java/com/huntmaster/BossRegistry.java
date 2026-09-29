@@ -106,7 +106,7 @@ final class BossRegistry
                                         "Phosani's Nightmare",
                                         "phosani's nightmare",
                                         "Your Phosani's Nightmare kill count is:",
-                                        10,
+                                        20,
                                         "v1"
                                 )
                         ),

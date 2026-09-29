@@ -63,7 +63,7 @@ final class AccountSnapshot
                 net.runelite.api.gameval.DBTableID.SlayerTask.COL_ID, 0, client.getVarpValue(VarPlayerID.SLAYER_TARGET));
             if (rows != null && !rows.isEmpty())
             {
-                String name = (String) client.getDBTableField(rows.get(0), net.runelite.api.gameval.DBTableID.SlayerTask.COL_NAME_UPPERCASE, 0)[0];
+                String name = taskName(client, rows.get(0));
                 if ("Bosses".equalsIgnoreCase(name))
                 {
                     java.util.List<Integer> bossRows = client.getDBRowsByValue(net.runelite.api.gameval.DBTableID.SlayerTaskSublist.ID,
@@ -72,8 +72,9 @@ final class AccountSnapshot
                     name = null;
                     if (bossRows != null && !bossRows.isEmpty())
                     {
-                        int row = (Integer) client.getDBTableField(bossRows.get(0), net.runelite.api.gameval.DBTableID.SlayerTaskSublist.COL_TASK, 0)[0];
-                        name = (String) client.getDBTableField(row, net.runelite.api.gameval.DBTableID.SlayerTask.COL_NAME_UPPERCASE, 0)[0];
+                        Object[] field = client.getDBTableField(bossRows.get(0), net.runelite.api.gameval.DBTableID.SlayerTaskSublist.COL_TASK, 0);
+                        if (field != null && field.length > 0 && field[0] instanceof Integer)
+                            name = taskName(client, (Integer) field[0]);
                     }
                 }
                 if (name != null) slayer.addProperty("task", name);
@@ -82,6 +83,12 @@ final class AccountSnapshot
         result.add("slayer", slayer);
         return result;
     }
+    private static String taskName(Client client, int row)
+    {
+        Object[] field = client.getDBTableField(row, net.runelite.api.gameval.DBTableID.SlayerTask.COL_NAME_UPPERCASE, 0);
+        return field != null && field.length > 0 && field[0] instanceof String ? (String) field[0] : null;
+    }
+
     private static void observeQuest(Client client, JsonObject destination, String name, boolean started)
     {
         Quest quest = QUEST_BY_NAME.get(name.toLowerCase(java.util.Locale.ROOT));

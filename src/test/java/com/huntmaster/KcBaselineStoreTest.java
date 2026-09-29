@@ -1,6 +1,6 @@
 package com.huntmaster;
 
-import java.nio.file.*;
+import java.nio.file.Paths;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
@@ -24,7 +24,7 @@ public class KcBaselineStoreTest
     }
     @Test public void observedTotalSurvivesRestartAndAccountsStaySeparate() throws Exception
     {
-        Path directory = Files.createTempDirectory("huntmaster-baseline-test");
+        Filepath directory = temporaryDirectory("huntmaster-baseline-test");
         KcBaselineStore first = store(directory);
         KcBaselineStore restarted = store(directory);
         try
@@ -36,27 +36,25 @@ public class KcBaselineStoreTest
             assertNull(restarted.read("account-one", "brutus"));
             assertEquals(Integer.valueOf(257), KcBaselineStore.latest(256, restarted.read("account-one", "giant mole")));
             assertEquals(Integer.valueOf(258), KcBaselineStore.latest(258, restarted.read("account-one", "giant mole")));
-            try (java.util.stream.Stream<Path> files = Files.list(directory)) { assertEquals(1, files.count()); }
+            try (java.util.stream.Stream<Filepath> files = directory.walk(1)) { assertEquals(1, files.skip(1).count()); }
         }
         finally
         {
             first.close(); restarted.close();
-            try (java.util.stream.Stream<Path> files = Files.list(directory))
-            { for (Path file : (Iterable<Path>) files::iterator) Files.delete(file); }
-            Files.delete(directory);
+            directory.deleteRecursively();
         }
     }
 
     @Test public void rejectsMalformedCheckpointsAndLeavesNoTemporaryFiles() throws Exception
     {
-        Path directory = Files.createTempDirectory("huntmaster-baseline-invalid");
+        Filepath directory = temporaryDirectory("huntmaster-baseline-invalid");
         KcBaselineStore store = store(directory);
-        Path checkpoint = directory.resolve(filename("account", "boss"));
+        Filepath checkpoint = directory.joinSegment(filename("account", "boss"));
         try
         {
             for (String invalid : new String[]{"", "bad", "-1", "2147483648", "12345678901234567"})
             {
-                Files.writeString(checkpoint, invalid);
+                checkpoint.write(invalid);
                 try { store.read("account", "boss"); fail("Accepted invalid checkpoint"); }
                 catch (IOException | IllegalArgumentException expected) { }
             }
@@ -66,36 +64,36 @@ public class KcBaselineStoreTest
             catch (IllegalArgumentException expected) { }
             assertEquals(Integer.valueOf(Integer.MAX_VALUE), store.read("account", "boss"));
         }
-        finally { store.close(); Filepath.Unchecked.getRooted(directory).deleteRecursively(); }
+        finally { store.close(); directory.deleteRecursively(); }
     }
 
     @Test public void failedReplacementCleansTemporaryFileWithoutRemovingDestination() throws Exception
     {
-        Path directory = Files.createTempDirectory("huntmaster-baseline-failure");
+        Filepath directory = temporaryDirectory("huntmaster-baseline-failure");
         KcBaselineStore store = store(directory);
-        Path destination = directory.resolve(filename("account", "boss"));
-        Files.createDirectory(destination);
-        Files.writeString(destination.resolve("keep"), "original");
+        Filepath destination = directory.joinSegment(filename("account", "boss"));
+        destination.createDirectory();
+        destination.joinSegment("keep").write("original");
         try
         {
             try { store.write("account", "boss", 123); fail("Replaced a nonempty directory"); }
             catch (IOException expected) { }
-            assertEquals("original", Files.readString(destination.resolve("keep")));
-            try (java.util.stream.Stream<Path> files = Files.list(directory)) { assertEquals(1, files.count()); }
+            assertEquals("original", readString(destination.joinSegment("keep")));
+            try (java.util.stream.Stream<Filepath> files = directory.walk(1)) { assertEquals(1, files.skip(1).count()); }
         }
-        finally { store.close(); Filepath.Unchecked.getRooted(directory).deleteRecursively(); }
+        finally { store.close(); directory.deleteRecursively(); }
     }
 
     @Test public void directoryResolutionIsLazyOnWorkerAndRetriesAfterFailure() throws Exception
     {
-        Path directory = Files.createTempDirectory("huntmaster-baseline-worker");
+        Filepath directory = temporaryDirectory("huntmaster-baseline-worker");
         AtomicInteger calls = new AtomicInteger();
         AtomicReference<Thread> resolvingThread = new AtomicReference<>();
         Thread caller = Thread.currentThread();
         KcBaselineStore store = new KcBaselineStore(() -> {
             resolvingThread.set(Thread.currentThread());
             if (calls.incrementAndGet() == 1) throw new IOException("Transient directory failure");
-            return Filepath.Unchecked.getRooted(directory);
+            return directory;
         });
         try
         {
@@ -108,20 +106,20 @@ public class KcBaselineStoreTest
             assertEquals(Integer.valueOf(123), load(store).get("boss"));
             assertEquals(2, calls.get());
         }
-        finally { store.close(); Filepath.Unchecked.getRooted(directory).deleteRecursively(); }
+        finally { store.close(); directory.deleteRecursively(); }
     }
 
     @Test public void encodedNamesStayWithinTheDirectory() throws Exception
     {
-        Path directory = Files.createTempDirectory("huntmaster-baseline-names");
+        Filepath directory = temporaryDirectory("huntmaster-baseline-names");
         KcBaselineStore store = store(directory);
         try
         {
             store.write("../account\\name", "boss:/name", 7);
             assertEquals(Integer.valueOf(7), store.read("../account\\name", "boss:/name"));
-            assertTrue(Files.exists(directory.resolve(filename("../account\\name", "boss:/name"))));
+            assertTrue(directory.joinSegment(filename("../account\\name", "boss:/name")).exists());
         }
-        finally { store.close(); Filepath.Unchecked.getRooted(directory).deleteRecursively(); }
+        finally { store.close(); directory.deleteRecursively(); }
     }
 
     private static Map<String, Integer> load(KcBaselineStore store) throws Exception
@@ -131,12 +129,36 @@ public class KcBaselineStoreTest
         return loaded.get(5, TimeUnit.SECONDS);
     }
 
-    private static KcBaselineStore store(Path directory)
+    private static KcBaselineStore store(Filepath directory)
     {
         // Only test fixtures use Unchecked to wrap isolated temporary paths.
-        return new KcBaselineStore(() -> Filepath.Unchecked.getRooted(directory));
+        return new KcBaselineStore(() -> directory);
     }
 
+    private static Filepath temporaryDirectory(String prefix) throws IOException
+    {
+        return Filepath.Unchecked.getRooted(Paths.get(System.getProperty("java.io.tmpdir"))).createTempDir(prefix);
+    }
+    private static String readString(Filepath file) throws IOException
+    {
+        try (java.io.BufferedReader reader=file.openBufferedReader()) { return reader.readLine(); }
+    }
+    @Test public void shutdownDrainsQueuedCheckpointWrites() throws Exception
+    {
+        Filepath directory=temporaryDirectory("huntmaster-shutdown");
+        KcBaselineStore store=store(directory);
+        CompletableFuture<Map<String,Integer>> loaded=new CompletableFuture<>();
+        try
+        {
+            store.save("account","boss",123);
+            store.load("account",Collections.singleton("boss"),loaded::complete);
+            store.close();
+            assertEquals(Integer.valueOf(123),loaded.get(5,TimeUnit.SECONDS).get("boss"));
+            store.save("account","boss",124); // A stale callback after disable is harmless.
+            assertEquals(Integer.valueOf(123),store.read("account","boss"));
+        }
+        finally { store.close();directory.deleteRecursively(); }
+    }
     static String filename(String profile, String boss)
     {
         return Base64.getUrlEncoder().withoutPadding()

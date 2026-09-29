@@ -16,7 +16,11 @@ The plugin sends your IP address through normal HTTPS traffic and submits your R
 
 Public builds use https://huntmaster.bosscape.com. The packaged release gate is enabled after successful public-client registration, assignment, persistence and completion checks; it never falls back to a player's localhost. Development `run` uses http://127.0.0.1:8787. Redirects are disabled and requests are restricted to the packaged origin. A rejected registration shows one login-safe notice and retries; membership/Discord failures do not grant credit.
 
-Pending kills retain their event/assignment IDs across retries and restarts. During a detected connection outage, collection has a ten-minute grace period, then pauses new tracking while preserving saved reports. Three consecutive verification failures can pause tracking until relog. The bot rejects outdated assignments and duplicate credit. Beta evidence support is not equivalent to strict verification for every boss.
+Pending kills retain their event/assignment IDs across retries and restarts. During a detected connection outage, collection has a ten-minute grace period, then pauses new tracking while preserving saved reports. The bot decides kill credit from the observations and controls verification warnings and the three-failure pause. It allows 60 seconds for delayed evidence before warning about an unconfirmed personal counter increase. Death-only observations do not count as personal failures. The plugin polls decisions every ten seconds while logged in; relog starts a fresh warning session. The bot rejects outdated assignments and duplicate credit. Beta evidence support is not equivalent to strict verification for every boss.
+
+Healthy connections check service health every 30 seconds and assignments every five seconds. Bot verification decisions are polled only with an active assignment; account snapshots are sampled at most once per minute. Responses are bounded to 64 KiB. Retries retain report IDs, and temporary rate limits do not discard legacy events.
+
+New collection pauses when the saved report backlog reaches 1,000 reports or 8 MiB, and resumes as delivery clears space. Already captured evidence is preserved, so those thresholds are collection limits rather than hard limits on existing saved data. Checkpoint writes drain on shutdown. All plugin filesystem access uses RuneLite's `net.runelite.client.util.Filepath` API; packaged resources use classpath streams.
 
 ## Development and submission
 
@@ -29,6 +33,8 @@ Version 1.1 is prepared locally and has not been published. Before release, test
 The bot independently checks published HiScores totals for accepted plugin credit. Ordinary progression remains immediate; unknown/delayed totals remain uncorroborated and contradictions request staff review. `/huntmaster-verification` shows your status in Bosscape. These checks add confidence, not cryptographic gameplay proof. High-value reward verification requires independent support or recorded staff approval under a separate reward policy.
 
 ## Group recruitment alerts (1.1)
+
+The pending 1.1 update sends observations to the bot through `/api/runelite/observations` and reads bot decisions from `/api/runelite/verification-status`. It does not create new locally verified KC requests. Existing saved legacy events retain their original delivery route and IDs. Phosani's Nightmare has a 20-tick capture window for delayed KC messages. This update requires the matching bot deployment and in-game acceptance before publication.
 
 Expand Raids, Wilderness Bosses, God Wars Dungeon, Other Group Bosses, or Skilling Bosses & Activities in Huntmaster settings and check the activities you want. All 32 boxes start off: 31 current Bosscape queue activities and The Fractured Archive (planned). No master switch, desktop notification, test button or sidebar is added.
 

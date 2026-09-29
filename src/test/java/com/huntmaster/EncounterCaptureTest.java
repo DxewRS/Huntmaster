@@ -8,6 +8,60 @@ import static org.junit.Assert.*;
 
 public class EncounterCaptureTest
 {
+	@Test public void lootAttachedToOneCounterCannotSupportTheNextCounter()
+	{
+		capture.primary(detector, "Example", assignment, 100, 1000, EncounterObservation.SignalKind.DEATH);
+		capture.counter(detector, "Example", assignment, 101, 1600, EncounterObservation.CounterSource.KC_MESSAGE, 8, 9);
+		capture.loot(detector, "Example", assignment, 102, 2200);
+		capture.counter(detector, "Example", assignment, 103, 2800, EncounterObservation.CounterSource.KC_MESSAGE, 9, 10);
+		capture.advance(120);
+		assertEquals(2, reports.size());
+		assertEquals(3, reports.get(0).signals.size());
+		assertEquals(1, reports.get(1).signals.size());
+		assertEquals(EncounterObservation.SignalKind.COUNTER, reports.get(1).signals.get(0).kind);
+	}
+	@Test public void newerPrimaryReplacesOlderBufferedSupport()
+	{
+		capture.primary(detector, "Example", assignment, 100, 1000, EncounterObservation.SignalKind.DEATH);
+		capture.loot(detector, "Example", assignment, 101, 1600);
+		capture.primary(detector, "Example", assignment, 104, 3400, EncounterObservation.SignalKind.DEATH);
+		capture.advance(116);
+		capture.counter(detector, "Example", assignment, 117, 11200, EncounterObservation.CounterSource.KC_MESSAGE, 9, 10);
+		capture.advance(140);
+		assertEquals(3, reports.size());
+		EncounterObservation.Snapshot delayed = reports.get(2);
+		assertEquals(3400, delayed.observedAt);
+		assertEquals(2, delayed.signals.size());
+		assertEquals(EncounterObservation.SignalKind.DEATH, delayed.signals.get(0).kind);
+		assertEquals(EncounterObservation.SignalKind.COUNTER, delayed.signals.get(1).kind);
+	}
+	@Test public void savedLegacyReportsWithoutModeKeepTheirOriginalRoute()
+	{
+		com.google.gson.JsonObject report = new com.google.gson.JsonObject();
+		assertEquals("/api/runelite/encounter-reports", EncounterReportCodec.deliveryRoute(report));
+		report.addProperty("trackingMode", "verified_credit");
+		assertEquals("/api/runelite/encounter-reports", EncounterReportCodec.deliveryRoute(report));
+		report.addProperty("trackingMode", "server_observation");
+		assertEquals("/api/runelite/observations", EncounterReportCodec.deliveryRoute(report));
+	}
+	@Test public void phosaniDelayedCounterStaysInOneVerificationWindow()
+	{
+		BossDetector d = java.util.Arrays.stream(BossRegistry.createDetectors())
+			.filter(candidate -> candidate.getName().equals("Phosani's Nightmare")).findFirst().get();
+		assertEquals(20, d.getPendingWindowTicks());
+		List<EncounterObservation.Snapshot> output = new ArrayList<>();
+		EncounterCapture capture = new EncounterCapture(output::add);
+		String assignment = UUID.randomUUID().toString();
+		capture.primary(d, "Example", assignment, 100, 1000, EncounterObservation.SignalKind.DEATH);
+		assertEquals(20, d.getPendingWindowTicks());
+		capture.advance(110);
+		assertTrue(output.isEmpty());
+		capture.counter(d, "Example", assignment, 110, 7000, EncounterObservation.CounterSource.KC_MESSAGE, 112, 113);
+		capture.advance(130);
+		assertEquals(1, output.size());
+		assertEquals(EncounterObservation.Outcome.UNRESOLVED, output.get(0).outcome);
+		assertEquals(2, output.get(0).signals.size());
+	}
 	@Test public void serializedUnknownCounterBaselineIsExplicitNull()
 	{
 		EncounterObservation record = new EncounterObservation(UUID.randomUUID(), UUID.randomUUID(),

@@ -25,6 +25,7 @@ final class KcBaselineStore
     private final DirectorySupplier directorySupplier;
     // Resolved lazily on the worker: getPluginDirectory may migrate legacy data.
     private Filepath directory;
+    private volatile boolean closed;
     private final ExecutorService worker = Executors.newSingleThreadExecutor(r -> {
         Thread thread = new Thread(r, "huntmaster-kc-baselines");
         thread.setDaemon(true);
@@ -41,7 +42,8 @@ final class KcBaselineStore
 
     void load(String profile, Collection<String> bosses, Consumer<Map<String, Integer>> callback)
     {
-        worker.execute(() -> {
+        if (closed) return;
+        try { worker.execute(() -> {
             Map<String, Integer> totals = new HashMap<>();
             for (String boss : bosses)
             {
@@ -49,16 +51,16 @@ final class KcBaselineStore
                 catch (IOException | IllegalArgumentException ex) { log.debug("Could not read Huntmaster KC checkpoint", ex); }
             }
             callback.accept(totals);
-        });
+        }); } catch (RejectedExecutionException ex) { if (!closed) throw ex; }
     }
 
     void save(String profile, String boss, int total)
     {
-        if (profile == null || total < 0) return;
-        worker.execute(() -> {
+        if (closed || profile == null || total < 0) return;
+        try { worker.execute(() -> {
             try { write(profile, boss, total); }
             catch (IOException ex) { log.debug("Could not save Huntmaster KC checkpoint", ex); }
-        });
+        }); } catch (RejectedExecutionException ex) { if (!closed) throw ex; }
     }
 
     Integer read(String profile, String boss) throws IOException
@@ -109,5 +111,5 @@ final class KcBaselineStore
         return directory().joinSegment(key + ".kc");
     }
 
-    void close() { worker.shutdownNow(); }
+    void close() { closed = true; worker.shutdown(); }
 }

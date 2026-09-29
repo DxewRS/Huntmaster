@@ -49,7 +49,6 @@ import net.runelite.client.events.RuneScapeProfileChanged;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 
-
 @Slf4j
 @PluginDescriptor(
 		name = "Huntmaster",
@@ -61,6 +60,32 @@ public class HuntmasterPlugin extends Plugin
 {
 	@Provides BosscapeSettings provideBosscapeSettings(ConfigManager manager)
 	{ return manager.getConfig(BosscapeSettings.class); }
+	private final ServerVerification serverVerification = new ServerVerification();
+	private void updateServerVerification()
+	{
+		Player player = client.getLocalPlayer();
+		if (!running || !registrationConfirmed || !healthReachable || assignmentSyncRequired
+			|| client.getGameState() != GameState.LOGGED_IN || player == null || assignmentId == null) return;
+		ServerVerification.Poll poll = serverVerification.begin(player.getName(), assignmentId, System.currentTimeMillis());
+		if (poll == null) return;
+		HttpUrl url = HttpUrl.parse(HUNTMASTER_API_BASE_URL + "/api/runelite/verification-status").newBuilder()
+			.addQueryParameter("rsn", poll.rsn).addQueryParameter("session", poll.session).build();
+		enqueueRequest(new Request.Builder().url(url).header("Cache-Control", "no-cache").build(), (status, body) ->
+		{
+			JsonObject response = null;
+			try { if (status == 200 && body.length() <= 8192) response = gson.fromJson(body, JsonObject.class); }
+			catch (RuntimeException ignored) { }
+			if (!serverVerification.isCurrent(poll)) return;
+			if (client.getGameState() != GameState.LOGGED_IN || client.getLocalPlayer() == null
+				|| !sameRsn(client.getLocalPlayer().getName(), poll.rsn)) { serverVerification.release(); return; }
+			if (!serverVerification.complete(poll, response, assignmentId)) { if (response == null) markConnectionFailure(); return; }
+			boolean wasPaused = reliability.isPaused();
+			reliability.restore(serverVerification.failures());
+			if (wasPaused != reliability.isPaused()) refreshDetectorBaselines();
+			String notice = serverVerification.takeNotice();
+			if (notice != null) client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", notice, null);
+		});
+	}
 	private long nextAccountSnapshotAt;
 	private int accountSnapshotLoginTick;
 	private boolean accountSnapshotInFlight;
@@ -84,6 +109,7 @@ public class HuntmasterPlugin extends Plugin
 			JsonObject response = null;
 			try { if (status == 200 && body.length() <= 65536) response = gson.fromJson(body, JsonObject.class); }
 			catch (RuntimeException ignored) { /* A failed poll resets the live edge. */ }
+			if (!recruitmentNotifications.isCurrent(poll)) return;
 			if (client.getGameState() != GameState.LOGGED_IN || client.getLocalPlayer() == null
 				|| !sameRsn(client.getLocalPlayer().getName(), poll.rsn)) { recruitmentNotifications.reset(); return; }
 			for (String message : recruitmentNotifications.complete(poll, response, System.currentTimeMillis()))
@@ -113,9 +139,7 @@ public class HuntmasterPlugin extends Plugin
 	private static final String HUNTMASTER_API_BASE_URL =
 			BotEndpoint.load(Boolean.getBoolean("huntmaster.developmentMode"));
 
-
 	private static final long HUNTMASTER_API_TIMEOUT_SECONDS = 5;
-
 
 	// ==================================================
 	// VERIFIED KC RETRY QUEUE
@@ -124,10 +148,8 @@ public class HuntmasterPlugin extends Plugin
 	private static final long HUNTMASTER_RETRY_DELAY_MS =
 			5_000L;
 
-
 	private final Map<String, PendingKcEvent> pendingKcEvents =
 			new ConcurrentHashMap<>();
-
 
 	// ==================================================
 	// PENDING KC PERSISTENCE
@@ -148,10 +170,8 @@ public class HuntmasterPlugin extends Plugin
 	private static final String HUNTMASTER_CONFIG_GROUP =
 			"huntmaster";
 
-
 	private static final String HUNTMASTER_PENDING_EVENTS_KEY =
 			"pendingKcEvents";
-
 
 	// ==================================================
 	// RUNELITE INJECTIONS
@@ -159,7 +179,6 @@ public class HuntmasterPlugin extends Plugin
 
 	@Inject
 	private Client client;
-
 
 	@Inject
 	private ConfigManager configManager;
@@ -172,7 +191,6 @@ public class HuntmasterPlugin extends Plugin
 
 	@Inject
 	private Gson gson;
-
 
 	// ==================================================
 	// BOSS DETECTORS
@@ -193,7 +211,6 @@ public class HuntmasterPlugin extends Plugin
 	{
 		return boss == null ? null : detectorsByName.get(boss.trim());
 	}
-
 
 	// ==================================================
 	// HTTP CLIENT
@@ -217,9 +234,11 @@ public class HuntmasterPlugin extends Plugin
 	private volatile long lifecycle;
 	private volatile boolean running;
 	private boolean connectionInitialized;
+	private long nextHealthCheckAt;
 	private boolean healthInFlight;
 	private boolean healthReachable;
 	private boolean trackingPaused;
+	private boolean backlogNoticeShown;
 	private int outageNoticeStage;
 	private boolean recoveryNoticePending;
 	private boolean assignmentInFlight;
@@ -235,11 +254,6 @@ public class HuntmasterPlugin extends Plugin
 	private final VerificationReliabilityState reliability = new VerificationReliabilityState();
 	private String reliabilityRsn;
 	private boolean logoutObserved;
-	private String reliabilityNotice;
-	private int lastReliabilityFailureTick = -1;
-	private static final String VERIFICATION_TELEMETRY_KEY = "verificationTelemetry";
-	private static final int MAX_TELEMETRY_ENTRIES = 128;
-	private JsonObject verificationTelemetry = new JsonObject();
 	private final EncounterReportQueue reportQueue = new EncounterReportQueue();
 	private long savedReportRevision = -1;
 	private long requestGeneration;
@@ -252,10 +266,7 @@ public class HuntmasterPlugin extends Plugin
 	private boolean linkNoticeShown;
 	private boolean membershipDenied;
 
-
 	private static final String REPORT_QUEUE_KEY = "pendingEncounterReports";
-
-
 
 	// ==================================================
 	// SESSION STATE
@@ -263,7 +274,6 @@ public class HuntmasterPlugin extends Plugin
 
 	private boolean needsRsnDetection =
 			true;
-
 
 	// ==================================================
 	// PENDING VERIFIED KC EVENT
@@ -280,18 +290,14 @@ public class HuntmasterPlugin extends Plugin
 		private final long createdAt;
 		private final String assignmentId;
 
-
 		private volatile int attempts =
 				0;
-
 
 		private volatile long nextAttemptAt =
 				0L;
 
-
 		private volatile boolean inFlight =
 				false;
-
 
 		private PendingKcEvent(
 				String eventId,
@@ -315,7 +321,6 @@ public class HuntmasterPlugin extends Plugin
 		}
 	}
 
-
 	// ==================================================
 	// PLUGIN STARTUP
 	// ==================================================
@@ -323,7 +328,11 @@ public class HuntmasterPlugin extends Plugin
 	@Override
 	protected void startUp()
 	{
+		BossRegistry.validateDetectors(bossDetectors);
 		recruitmentNotifications.reset();
+		serverVerification.reset();
+		nextHealthCheckAt = 0;
+		backlogNoticeShown = false;
 		membershipDenied = false;
 		accountSnapshotInFlight = false;
 		nextAccountSnapshotAt = System.currentTimeMillis() + 10_000L;
@@ -350,31 +359,23 @@ public class HuntmasterPlugin extends Plugin
 				.readTimeout(HUNTMASTER_API_TIMEOUT_SECONDS, TimeUnit.SECONDS)
 				.callTimeout(HUNTMASTER_API_TIMEOUT_SECONDS, TimeUnit.SECONDS)
 				.build();
-		BossRegistry.validateDetectors(
-				bossDetectors
-		);
-
 
 		log.debug(
 				"Huntmaster registered {} boss detectors",
 				bossDetectors.length
 		);
 
-
 		log.debug(
 				"Huntmaster boss detector registry validation PASSED"
 		);
-
 
 		// Reload any verified KC events that were still
 		// waiting for Huntmaster when RuneLite last closed.
 		loadPendingKcEvents();
 
-
 		log.debug(
 				"Huntmaster started"
 		);
-
 
 		if (
 				!pendingKcEvents.isEmpty()
@@ -385,7 +386,6 @@ public class HuntmasterPlugin extends Plugin
 					pendingKcEvents.size()
 			);
 		}
-
 
 		clientThread.invokeLater(() ->
 		{
@@ -420,10 +420,7 @@ public class HuntmasterPlugin extends Plugin
 			loadAssignmentCache();
 			reliabilityRsn = null;
 			reliability.restore(0);
-			reliabilityNotice = null;
 			logoutObserved = client.getGameState() == GameState.LOGIN_SCREEN;
-			lastReliabilityFailureTick = -1;
-			loadVerificationTelemetry();
 			reportsEnabled = encounterCommunicationEnabled();
 			loadEncounterReports();
 			trackingPaused = false;
@@ -455,7 +452,6 @@ public class HuntmasterPlugin extends Plugin
 			}), 0, HUNTMASTER_RETRY_DELAY_MS, TimeUnit.MILLISECONDS);
 		});
 
-
 		if (
 				client.getGameState() ==
 						GameState.LOGGED_IN
@@ -464,7 +460,6 @@ public class HuntmasterPlugin extends Plugin
 			logCurrentRsn();
 		}
 	}
-
 
 	// ==================================================
 	// PLUGIN SHUTDOWN
@@ -479,7 +474,7 @@ public class HuntmasterPlugin extends Plugin
 		clearEncounterCaptures();
 		running = false;
 		reportsEnabled = false;
-		if (baselineStore != null) baselineStore.close();
+		if (baselineStore != null) { baselineStore.close(); baselineStore = null; }
 		++lifecycle;
 		if (connectionTask != null)
 		{
@@ -494,8 +489,10 @@ public class HuntmasterPlugin extends Plugin
 			call.cancel();
 		}
 		activeCalls.clear();
+		serverVerification.reset();
+		connectionTask = null;
+		connectionExecutor = null;
 		savePendingKcEvents();
-
 
 		if (
 				!pendingKcEvents.isEmpty()
@@ -507,12 +504,10 @@ public class HuntmasterPlugin extends Plugin
 			);
 		}
 
-
 		log.debug(
 				"Huntmaster stopped"
 		);
 	}
-
 
 	// ==================================================
 	// GAME TICK
@@ -524,8 +519,15 @@ public class HuntmasterPlugin extends Plugin
 		showLinkNotice();
 		if (reportsEnabled) diagnostic(() -> { encounterCapture.advance(client.getTickCount()); dagannothCapture.advance(client.getTickCount()); });
 		updateVerificationRecovery();
+		diagnostic(this::updateServerVerification);
 		updateOutageTracking();
 		showOutageNotices();
+		if (!reportQueue.collectionBackpressured()) backlogNoticeShown = false;
+		else if (!backlogNoticeShown && client.getGameState() == GameState.LOGGED_IN)
+		{
+			backlogNoticeShown = true;
+			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "Huntmaster: Evidence storage is full. New tracking is paused until saved reports can be delivered. Saved reports are preserved.", null);
+		}
 		if (!canTrackNewKills())
 		{
 			assignedTotalTracker.clear();
@@ -535,7 +537,6 @@ public class HuntmasterPlugin extends Plugin
 			return;
 		}
 		diagnostic(this::observeAssignedSpecialTotal);
-		retryPendingKcEvents();
 
 		if (needsRsnDetection)
 		{
@@ -559,9 +560,6 @@ public class HuntmasterPlugin extends Plugin
 			switch (detector.getDetectorType())
 			{
 				case STANDARD_NPC:
-					handleStandardNpcGameTick(
-							detector
-					);
 					break;
 
 				case COMPLETION:
@@ -588,183 +586,12 @@ public class HuntmasterPlugin extends Plugin
 
 	private void handleTotalGameTick(BossDetector detector)
 	{
-		String label = detector.getDetectorType() == BossDetectorType.ACTIVITY ? "activity" : "completion";
-		Integer totalVarpId =
-				detector.getCompletionVarpId();
-
-		if (totalVarpId == null)
-		{
-			log.warn(
-					"Huntmaster total-count detector {} has no dedicated varp",
-					detector.getName()
-			);
-
-			return;
-		}
-
-		if (client.getGameState()
-				!= GameState.LOGGED_IN)
-		{
-			return;
-		}
-
-		int currentTotal =
-				client.getVarpValue(
-						totalVarpId
-				);
-
-		Integer lastTotal =
-				detector.getLastKc();
-
-		BossVerificationState state =
-				detector.getState();
-
-		if (lastTotal == null)
-		{
-			detector.setLastKc(
-					currentTotal
-			);
-
-			log.debug(
-					"Huntmaster established {} total-count baseline: {}",
-					detector.getName(),
-					currentTotal
-			);
-
-			return;
-		}
-
-		if (currentTotal != lastTotal) observeCounter(detector, EncounterObservation.CounterSource.COMPLETION_VARP, lastTotal, currentTotal);
-		int increase =
-				currentTotal
-						- lastTotal;
-
-		if (increase == 1)
-		{
-			state.setKcIncreaseConfirmed(
-					true
-			);
-
-			log.debug(
-					"Huntmaster detected {} total-count increase: {} -> {} (+1)",
-					detector.getName(),
-					lastTotal,
-					currentTotal
-			);
-
-			detector.setLastKc(
-					currentTotal
-			);
-
-			if (!evaluateTotalVerification(
-					detector))
-			{
-				detector.startPendingVerification();
-
-				log.debug(
-						"Huntmaster {} verification pending second signal",
-						detector.getName()
-				);
-			}
-
-			return;
-		}
-
-		if (increase > 1)
-		{
-			handleAmbiguousKc(
-					detector.getName(),
-					"unexpected " + label + " total increase "
-							+ lastTotal
-							+ " -> "
-							+ currentTotal
-							+ " (+"
-							+ increase
-							+ ")"
-			);
-
-			detector.setLastKc(
-					currentTotal
-			);
-
-			detector.resetVerification();
-
-			return;
-		}
-
-		if (increase < 0)
-		{
-			log.warn(
-					"Huntmaster detected {} total-count decrease: {} -> {}. Resyncing baseline.",
-					detector.getName(),
-					lastTotal,
-					currentTotal
-			);
-
-			detector.setLastKc(
-					currentTotal
-			);
-
-			detector.resetVerification();
-
-			return;
-		}
-
-		if (!state.isPendingVerification()
-				|| state.getPendingTicksRemaining() <= 0)
-		{
-			return;
-		}
-
-		state.setPendingTicksRemaining(
-				state.getPendingTicksRemaining() - 1
-		);
-
-		if (state.getPendingTicksRemaining() == 0)
-		{
-			if (!evaluateTotalVerification(
-					detector))
-			{
-				handleUnresolvedKc(
-						detector.getName(),
-						label + " verification window expired"
-				);
-
-				detector.resetVerification();
-			}
-		}
-	}
-
-
-	private void handleStandardNpcGameTick(
-			BossDetector detector)
-	{
-		BossVerificationState state =
-				detector.getState();
-
-		if (!state.isPendingVerification()
-				|| state.getPendingTicksRemaining() <= 0)
-		{
-			return;
-		}
-
-		state.setPendingTicksRemaining(
-				state.getPendingTicksRemaining() - 1
-		);
-
-		if (state.getPendingTicksRemaining() == 0)
-		{
-			if (!evaluateStandardNpcVerification(detector))
-			{
-				handleUnresolvedKc(
-						detector.getName(),
-						"verification window expired",
-						StandardNpcVerification.countsExpiredAttemptAsFailure(detector.getDefinition())
-				);
-
-				detector.resetVerification();
-			}
-		}
+		Integer varp=detector.getCompletionVarpId();
+		if (varp==null || client.getGameState()!=GameState.LOGGED_IN) return;
+		int total=client.getVarpValue(varp);
+		Integer previous=detector.getLastKc();
+		if (previous!=null && total!=previous) observeCounter(detector, EncounterObservation.CounterSource.COMPLETION_VARP, previous, total);
+		detector.setLastKc(total);
 	}
 
 @Subscribe
@@ -815,7 +642,6 @@ public void onRuneScapeProfileChanged(
 	}
 }
 
-
 	@Subscribe
 	public void onActorDeath(ActorDeath event)
 	{
@@ -851,9 +677,6 @@ public void onRuneScapeProfileChanged(
 		switch (detector.getDetectorType())
 		{
 			case STANDARD_NPC:
-				handleStandardNpcDeath(
-						detector
-				);
 				break;
 
 			case COMPLETION:
@@ -871,46 +694,6 @@ public void onRuneScapeProfileChanged(
 				);
 				break;
 		}
-	}
-
-	private void handleStandardNpcDeath(
-			BossDetector detector)
-	{
-		BossVerificationState state =
-				detector.getState();
-
-		log.debug(
-				"Huntmaster detected {} kill candidate",
-				detector.getName()
-		);
-
-		state.setDeathCandidate(
-				true
-		);
-
-		boolean recentLoot =
-				hasRecentLoot(
-						state,
-						detector.getPendingWindowTicks()
-				);
-
-		if (!recentLoot)
-		{
-			state.setLootOccurred(
-					false
-			);
-
-			state.setLootTick(
-					-1
-			);
-		}
-
-		if (evaluateStandardNpcVerification(detector))
-		{
-			return;
-		}
-
-		detector.startPendingVerification();
 	}
 
 	@Subscribe
@@ -946,9 +729,6 @@ public void onRuneScapeProfileChanged(
 		switch (detector.getDetectorType())
 		{
 			case STANDARD_NPC:
-				handleStandardNpcLoot(
-						detector
-				);
 				break;
 
 			case COMPLETION:
@@ -998,41 +778,6 @@ public void onRuneScapeProfileChanged(
 		if (container == null) return;
 		for (net.runelite.api.Item item : container.getItems())
 			if (item.getId() >= 0 && item.getQuantity() > 0) { observeLoot(detector); return; }
-	}
-
-	private void handleStandardNpcLoot(
-			BossDetector detector)
-	{
-		BossVerificationState state =
-				detector.getState();
-
-		if (client.getTickCount()
-				== state.getLastVerifiedTick())
-		{
-			log.debug(
-					"Huntmaster ignored {} loot because this kill was already verified",
-					detector.getName()
-			);
-
-			return;
-		}
-
-		state.setLootOccurred(
-				true
-		);
-
-		state.setLootTick(
-				client.getTickCount()
-		);
-
-		log.debug(
-				"Huntmaster detected {} loot occurrence",
-				detector.getName()
-		);
-
-		evaluateStandardNpcVerification(
-				detector
-		);
 	}
 
 	@Subscribe
@@ -1120,148 +865,20 @@ public void onRuneScapeProfileChanged(
 		}
 	}
 
-	private void handleStandardNpcKcMessage(
-			BossDetector detector,
-			String message)
+	private void handleStandardNpcKcMessage(BossDetector detector, String message)
 	{
-		Integer parsed = GenericKcRouter.parse(message, detector.getName());
-		if (parsed == null) return;
-		int currentKc = parsed;
-		checkpointObservedKc(detector, currentKc);
-
-		Integer lastKc =
-				detector.getLastKc();
-
-		BossVerificationState state =
-				detector.getState();
-
-		if (lastKc == null)
-		{
-			detector.setLastKc(
-					currentKc
-			);
-
-			log.debug(
-					"Huntmaster established {} KC baseline: {}",
-					detector.getName(),
-					currentKc
-			);
-
-			return;
-		}
-
-		observeCounter(detector, EncounterObservation.CounterSource.KC_MESSAGE, lastKc, currentKc);
-		int kcIncrease =
-				currentKc - lastKc;
-
-		if (kcIncrease == 1)
-		{
-			state.setKcIncreaseConfirmed(
-					true
-			);
-
-			log.debug(
-					"Huntmaster detected {} KC increase: {} -> {} (+1)",
-					detector.getName(),
-					lastKc,
-					currentKc
-			);
-
-			if (!evaluateStandardNpcVerification(detector))
-			{
-				log.warn(
-						"Huntmaster detected {} KC increase without enough verification evidence",
-						detector.getName()
-				);
-
-				detector.startPendingVerification();
-
-				log.debug(
-						"Huntmaster {} verification pending second signal",
-						detector.getName()
-				);
-			}
-		}
-		else if (kcIncrease > 1)
-		{
-			handleAmbiguousKc(
-					detector.getName(),
-					"unexpected increase "
-							+ lastKc
-							+ " -> "
-							+ currentKc
-							+ " (+"
-							+ kcIncrease
-							+ ")"
-			);
-
-			detector.resetVerification();
-		}
-		else
-		{
-			if (state.isDeathCandidate())
-			{
-				detector.startPendingVerification();
-
-				log.warn(
-						"Huntmaster detected {} death without a KC increase: {} -> {}",
-						detector.getName(),
-						lastKc,
-						currentKc
-				);
-
-				log.debug(
-						"Huntmaster {} verification pending loot tie-breaker",
-						detector.getName()
-				);
-			}
-			else
-			{
-				log.warn(
-						"Huntmaster received {} KC without an increase: {} -> {}",
-						detector.getName(),
-						lastKc,
-						currentKc
-				);
-			}
-		}
-
-		detector.setLastKc(
-				currentKc
-		);
+		Integer total=GenericKcRouter.parse(message,detector.getName());
+		if (total==null) return;
+		observeCounter(detector, EncounterObservation.CounterSource.KC_MESSAGE, detector.getLastKc(), total);
+		checkpointObservedKc(detector,total);
+		detector.setLastKc(total);
 	}
 
-	private void handleTotalKcMessage(
-			BossDetector detector,
-			String message)
+	private void handleTotalKcMessage(BossDetector detector, String message)
 	{
-		observePrimary(detector, detector.getDetectorType() == BossDetectorType.ACTIVITY
+		observePrimary(detector, detector.getDetectorType()==BossDetectorType.ACTIVITY
 			? EncounterObservation.SignalKind.ACTIVITY_COMPLETION : EncounterObservation.SignalKind.COMPLETION);
-		BossVerificationState state =
-				detector.getState();
-
-		log.debug(
-				"Huntmaster detected {} completion/activity message: {}",
-				detector.getName(),
-				message
-		);
-
-		state.setDeathCandidate(
-				true
-		);
-
-		if (!evaluateTotalVerification(
-				detector))
-		{
-			detector.startPendingVerification();
-
-			log.debug(
-					"Huntmaster {} verification pending total-count increase",
-					detector.getName()
-			);
-		}
 	}
-
 
 	private BossDetector findDetectorByNpcName(String npcName)
 	{
@@ -1322,230 +939,17 @@ public void onRuneScapeProfileChanged(
 		return null;
 	}
 
-	private boolean hasRecentLoot(
-			BossVerificationState state,
-			int pendingWindowTicks)
-	{
-		int lootTick = state.getLootTick();
-
-		if (!state.isLootOccurred() || lootTick < 0)
-		{
-			return false;
-		}
-
-		int lootAge = client.getTickCount() - lootTick;
-
-		return lootAge >= 0
-				&& lootAge <= pendingWindowTicks;
-	}
-
-	private boolean evaluateTotalVerification(
-			BossDetector detector)
-	{
-		BossVerificationState state =
-				detector.getState();
-
-		if (state.isDeathCandidate()
-				&& state.isKcIncreaseConfirmed())
-		{
-			handleVerifiedKc(
-					detector.getName(),
-					state,
-					detector.getDetectorType() == BossDetectorType.ACTIVITY
-					? "activity completion message + activity count increase"
-					: "completion message + completion total increase"
-			);
-
-			state.reset();
-
-			return true;
-		}
-
-		return false;
-	}
-
-
-	private boolean evaluateStandardNpcVerification(
-			BossDetector detector)
-	{
-		BossVerificationState state =
-				detector.getState();
-
-		boolean recentLoot =
-				hasRecentLoot(
-						state,
-						detector.getPendingWindowTicks()
-				);
-
-		EncounterObservation.Method selected = StandardNpcVerification.method(detector.getDefinition(), state, recentLoot);
-		if (selected == EncounterObservation.Method.DEATH_AND_COUNTER)
-		{
-			handleVerifiedKc(
-					detector.getName(),
-					state,
-					"death event + KC increase"
-			);
-
-			state.reset();
-
-			return true;
-		}
-
-		if (selected == EncounterObservation.Method.DEATH_AND_LOOT)
-		{
-			handleVerifiedKc(
-					detector.getName(),
-					state,
-					"death event + loot"
-			);
-
-			state.reset();
-
-			return true;
-		}
-
-		if (selected == EncounterObservation.Method.COUNTER_AND_LOOT)
-		{
-			handleVerifiedKc(
-					detector.getName(),
-					state,
-					"KC increase + loot"
-			);
-
-			state.reset();
-
-			return true;
-		}
-
-		return false;
-	}
-
 // ==================================================
 // HANDLE VERIFIED KC
-// ==================================================
-
-	private void handleVerifiedKc(
-			String bossName,
-			BossVerificationState state,
-			String verificationMethod)
-	{
-		if (evidenceOnlyBoss(bossName) || !canTrackNewKills())
-		{
-			return;
-		}
-		state.setLastVerifiedTick(
-				client.getTickCount()
-		);
-
-
-		log.debug(
-				"Huntmaster VERIFIED {} KC: {}",
-				bossName,
-				verificationMethod
-		);
-
-
-		Player localPlayer =
-				client.getLocalPlayer();
-
-
-		if (
-				localPlayer == null
-		)
-		{
-			log.warn(
-					"Huntmaster could not queue VERIFIED {} KC because the local player is unavailable",
-					bossName
-			);
-
-			return;
-		}
-
-
-		String rsn =
-				localPlayer.getName();
-
-
-		if (
-				rsn == null ||
-						rsn.trim().isEmpty()
-		)
-		{
-			log.warn(
-					"Huntmaster could not queue VERIFIED {} KC because the RSN is unavailable",
-					bossName
-			);
-
-			return;
-		}
-
-
-		if (!matchesAssignedBoss(bossName))
-		{
-			log.debug("Huntmaster ignored {} KC outside the known assignment", bossName);
-			return;
-		}
-
-		if (reliability.getFailures() > 0)
-		{
-			reliability.recordVerified();
-			saveVerificationReliability();
-			reliabilityNotice = null;
-		}
-		String eventId =
-				UUID.randomUUID()
-						.toString();
-
-
-		PendingKcEvent pendingEvent =
-				new PendingKcEvent(
-						eventId,
-						rsn,
-					bossName,
-					System.currentTimeMillis(),
-					assignmentId
-				);
-
-
-		pendingKcEvents.put(
-				eventId,
-				pendingEvent
-		);
-		recordVerificationTelemetry(bossName, VerificationTelemetry.Outcome.VERIFIED);
-		if (reportsEnabled) diagnostic(() -> encounterCapture.verified(UUID.fromString(eventId), observationMethod(verificationMethod)));
-
-
-		savePendingKcEvents();
-
-
-		log.debug(
-				"Huntmaster created KC event {} for {}",
-				eventId,
-				bossName
-		);
-
-
-		log.debug(
-				"Huntmaster queued VERIFIED {} KC for RSN {} — event {}",
-				bossName,
-				rsn,
-				eventId
-		);
-
-
-		sendPendingKcEvent(
-				pendingEvent
-		);
-	}
-
-
-// ==================================================
-// RETRY PENDING VERIFIED KC EVENTS
 // ==================================================
 
 	private void retryPendingKcEvents()
 	{
 		if (!encounterCommunicationEnabled()) return;
+		Player player = client.getLocalPlayer();
+		if (!registrationConfirmed || !healthReachable || assignmentSyncRequired
+				|| client.getGameState() != GameState.LOGGED_IN || player == null
+				|| !sameRsn(player.getName(), assignmentRsn)) return;
 		if (
 				pendingKcEvents.isEmpty()
 		)
@@ -1553,23 +957,21 @@ public void onRuneScapeProfileChanged(
 			return;
 		}
 
-
-		long now =
-				System.currentTimeMillis();
-
+		if (pendingKcEvents.values().stream().anyMatch(entry -> entry.inFlight)) return;
+		long now = System.currentTimeMillis();
 
 		for (
 				PendingKcEvent pendingEvent :
 				pendingKcEvents.values()
 		)
 		{
+			if (!sameRsn(player.getName(), pendingEvent.rsn)) continue;
 			if (
 					pendingEvent.inFlight
 			)
 			{
 				continue;
 			}
-
 
 			if (
 					now <
@@ -1579,7 +981,6 @@ public void onRuneScapeProfileChanged(
 				continue;
 			}
 
-
 			log.debug(
 					"Huntmaster retrying pending KC event {} for {} at {}",
 					pendingEvent.eventId,
@@ -1587,13 +988,10 @@ public void onRuneScapeProfileChanged(
 					pendingEvent.bossName
 			);
 
-
-			sendPendingKcEvent(
-					pendingEvent
-			);
+			sendPendingKcEvent(pendingEvent);
+			if (pendingEvent.inFlight) return;
 		}
 	}
-
 
 // ==================================================
 // SEND PENDING VERIFIED KC EVENT
@@ -1644,7 +1042,7 @@ public void onRuneScapeProfileChanged(
 				refreshAssignment();
 				recoverConnectionIfReady();
 			}
-			else if (status >= 400 && status < 500)
+			else if (HttpResponsePolicy.isPermanentRejection(status))
 			{
 				try
 				{
@@ -1679,7 +1077,6 @@ public void onRuneScapeProfileChanged(
 		});
 	}
 
-
 // ==================================================
 // SCHEDULE VERIFIED KC RETRY
 // ==================================================
@@ -1695,7 +1092,6 @@ public void onRuneScapeProfileChanged(
 			return;
 		}
 
-
 		if (
 				!pendingKcEvents.containsKey(
 						pendingEvent.eventId
@@ -1705,11 +1101,9 @@ public void onRuneScapeProfileChanged(
 			return;
 		}
 
-
 		pendingEvent.nextAttemptAt =
 				System.currentTimeMillis()
 						+ HUNTMASTER_RETRY_DELAY_MS;
-
 
 		long ageMs =
 				Math.max(
@@ -1717,7 +1111,6 @@ public void onRuneScapeProfileChanged(
 						System.currentTimeMillis()
 								- pendingEvent.createdAt
 				);
-
 
 		log.debug(
 				"Huntmaster KC event {} remains pending for {} at {} — attempt {} failed — age {} ms — retrying in {} ms — {}",
@@ -1730,7 +1123,6 @@ public void onRuneScapeProfileChanged(
 				reason
 		);
 	}
-
 
 // ==================================================
 // ERROR MESSAGE HELPER
@@ -1746,10 +1138,8 @@ public void onRuneScapeProfileChanged(
 			return "unknown error";
 		}
 
-
 		Throwable cause =
 				error;
-
 
 		while (
 				cause.getCause() != null
@@ -1759,10 +1149,8 @@ public void onRuneScapeProfileChanged(
 					cause.getCause();
 		}
 
-
 		String message =
 				cause.getMessage();
-
 
 		if (
 				message == null ||
@@ -1774,14 +1162,12 @@ public void onRuneScapeProfileChanged(
 					.getSimpleName();
 		}
 
-
 		return cause
 				.getClass()
 				.getSimpleName()
 				+ ": "
 				+ message;
 	}
-
 
 	// ==================================================
 // PENDING KC PERSISTENCE
@@ -1798,19 +1184,15 @@ public void onRuneScapeProfileChanged(
 					HUNTMASTER_PENDING_EVENTS_KEY
 			);
 
-
 			log.debug(
 					"Huntmaster cleared persisted pending KC events"
 			);
 
-
 			return;
 		}
 
-
 		StringBuilder serialized =
 				new StringBuilder();
-
 
 		for (
 				PendingKcEvent pendingEvent :
@@ -1825,7 +1207,6 @@ public void onRuneScapeProfileChanged(
 						"\n"
 				);
 			}
-
 
 			serialized
 					.append(
@@ -1857,20 +1238,17 @@ public void onRuneScapeProfileChanged(
 					.append(pendingEvent.assignmentId);
 		}
 
-
 		configManager.setConfiguration(
 				HUNTMASTER_CONFIG_GROUP,
 				HUNTMASTER_PENDING_EVENTS_KEY,
 				serialized.toString()
 		);
 
-
 		log.debug(
 				"Huntmaster persisted {} pending KC event(s)",
 				pendingKcEvents.size()
 		);
 	}
-
 
 // ==================================================
 // LOAD PERSISTED PENDING KC EVENTS
@@ -1880,13 +1258,11 @@ public void onRuneScapeProfileChanged(
 	{
 		pendingKcEvents.clear();
 
-
 		String serialized =
 				configManager.getConfiguration(
 						HUNTMASTER_CONFIG_GROUP,
 						HUNTMASTER_PENDING_EVENTS_KEY
 				);
-
 
 		if (
 				serialized == null ||
@@ -1896,16 +1272,13 @@ public void onRuneScapeProfileChanged(
 			return;
 		}
 
-
 		String[] records =
 				serialized.split(
 						"\\r?\\n"
 				);
 
-
 		int restoredCount =
 				0;
-
 
 		for (
 				String record :
@@ -1920,7 +1293,6 @@ public void onRuneScapeProfileChanged(
 				continue;
 			}
 
-
 			try
 			{
 				String[] parts =
@@ -1928,7 +1300,6 @@ public void onRuneScapeProfileChanged(
 								"\\|",
 								-1
 						);
-
 
 				if (
 						parts.length != 4 && parts.length != 5
@@ -1941,22 +1312,18 @@ public void onRuneScapeProfileChanged(
 					continue;
 				}
 
-
 				String eventId =
 						parts[0];
-
 
 				String rsn =
 						decodePersistenceValue(
 								parts[1]
 						);
 
-
 				String bossName =
 						decodePersistenceValue(
 								parts[2]
 						);
-
 
 				long createdAt =
 						Long.parseLong(
@@ -1975,7 +1342,6 @@ public void onRuneScapeProfileChanged(
 					continue;
 				}
 
-
 				if (
 						eventId == null ||
 								eventId.trim().isEmpty() ||
@@ -1992,7 +1358,6 @@ public void onRuneScapeProfileChanged(
 					continue;
 				}
 
-
 				PendingKcEvent pendingEvent =
 						new PendingKcEvent(
 								eventId,
@@ -2002,16 +1367,13 @@ public void onRuneScapeProfileChanged(
 								parts[4]
 						);
 
-
 				pendingKcEvents.put(
 						eventId,
 						pendingEvent
 				);
 
-
 				restoredCount +=
 						1;
-
 
 				log.debug(
 						"Huntmaster restored pending KC event {} for {} at {}",
@@ -2031,7 +1393,6 @@ public void onRuneScapeProfileChanged(
 			}
 		}
 
-
 		if (
 				restoredCount == 0
 		)
@@ -2041,10 +1402,8 @@ public void onRuneScapeProfileChanged(
 					HUNTMASTER_PENDING_EVENTS_KEY
 			);
 
-
 			return;
 		}
-
 
 		/*
 		 * Rewrite the saved value after loading.
@@ -2054,13 +1413,11 @@ public void onRuneScapeProfileChanged(
 		 */
 		savePendingKcEvents();
 
-
 		log.debug(
 				"Huntmaster loaded {} persisted pending KC event(s)",
 				restoredCount
 		);
 	}
-
 
 // ==================================================
 // PERSISTENCE VALUE ENCODING
@@ -2076,7 +1433,6 @@ public void onRuneScapeProfileChanged(
 			return "";
 		}
 
-
 		return Base64
 				.getEncoder()
 				.encodeToString(
@@ -2085,7 +1441,6 @@ public void onRuneScapeProfileChanged(
 						)
 				);
 	}
-
 
 	private String decodePersistenceValue(
 			String value)
@@ -2097,7 +1452,6 @@ public void onRuneScapeProfileChanged(
 		{
 			return "";
 		}
-
 
 		return new String(
 				Base64
@@ -2112,33 +1466,6 @@ public void onRuneScapeProfileChanged(
 // ==================================================
 // UNRESOLVED VERIFICATION
 // ==================================================
-
-	private void handleUnresolvedKc(String bossName, String reason)
-	{
-		handleUnresolvedKc(bossName, reason, true);
-	}
-
-	private void handleUnresolvedKc(String bossName, String reason, boolean countFailure)
-	{
-		if (reportsEnabled) diagnostic(() -> encounterCapture.uncertain(EncounterObservation.Outcome.UNRESOLVED));
-		log.debug(
-				"Huntmaster UNRESOLVED {} KC: {}",
-				bossName,
-				reason
-		);
-		if (countFailure && !evidenceOnlyBoss(bossName)) recordVerificationFailure(bossName, "unresolved", reason);
-	}
-
-	private void handleAmbiguousKc(String bossName, String reason)
-	{
-		if (reportsEnabled) diagnostic(() -> encounterCapture.uncertain(EncounterObservation.Outcome.AMBIGUOUS));
-		log.debug(
-				"Huntmaster AMBIGUOUS {} KC: {}. No KC verified.",
-				bossName,
-				reason
-		);
-		if (!evidenceOnlyBoss(bossName)) recordVerificationFailure(bossName, "ambiguous", reason);
-	}
 
 	private void logCurrentRsn()
 	{
@@ -2162,7 +1489,6 @@ public void onRuneScapeProfileChanged(
 		);
 	}
 
-
 	// ==================================================
 	// HUNTMASTER API CONNECTION TEST
 	// ==================================================
@@ -2170,11 +1496,13 @@ public void onRuneScapeProfileChanged(
 	private void testHuntmasterApiConnection()
 	{
 		if (!encounterCommunicationEnabled()) return;
-		if (healthInFlight)
+		if (healthInFlight || System.currentTimeMillis() < nextHealthCheckAt)
 		{
+			if (healthReachable && !healthInFlight) refreshAssignment();
 			return;
 		}
 		healthInFlight = true;
+		nextHealthCheckAt = System.currentTimeMillis() + (healthReachable ? 30_000L : HUNTMASTER_RETRY_DELAY_MS);
 		Request request = new Request.Builder().url(HUNTMASTER_API_BASE_URL + "/health")
 				.header("Cache-Control", "no-cache").build();
 		enqueueRequest(request, (status, body) ->
@@ -2230,7 +1558,7 @@ public void onRuneScapeProfileChanged(
 			{
 				try (Response closedResponse = response)
 				{
-					finish(response.code(), response.body() == null ? "" : response.body().string());
+					finish(response.code(), HttpResponsePolicy.read(response.body()));
 				}
 				catch (IOException ex)
 				{
@@ -2255,6 +1583,7 @@ public void onRuneScapeProfileChanged(
 
 	private void markConnectionFailure()
 	{
+		nextHealthCheckAt = Math.min(nextHealthCheckAt, System.currentTimeMillis() + HUNTMASTER_RETRY_DELAY_MS);
 		assignmentSyncRequired = true;
 		healthReachable = false;
 		if (outage.fail(System.currentTimeMillis()))
@@ -2273,7 +1602,8 @@ public void onRuneScapeProfileChanged(
 		}
 		updateOutageTracking();
 		Player player = client.getLocalPlayer();
-		return !trackingPaused && !reliability.isPaused() && player != null && assignmentId != null
+		return client.getGameState() == GameState.LOGGED_IN && !membershipDenied
+				&& !reportQueue.collectionBackpressured() && !trackingPaused && !reliability.isPaused() && player != null && assignmentId != null
 				&& sameRsn(player.getName(), reliabilityRsn)
 				&& (!assignmentSyncRequired || outage.getStartedAt() != 0)
 				&& sameRsn(player.getName(), assignmentRsn);
@@ -2308,7 +1638,7 @@ public void onRuneScapeProfileChanged(
 		else if (outage.getStartedAt() != 0 && outageNoticeStage == 0)
 		{
 			outageNoticeStage = 1;
-			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "Huntmaster RuneLite Plugin cannot reach the Huntmaster Discord Bot. Verified kills will be saved during the first 10 minutes of this outage.", null);
+			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "Huntmaster RuneLite Plugin cannot reach the Huntmaster Discord Bot. Encounter evidence will be saved during the first 10 minutes of this outage for the bot to check after reconnection.", null);
 		}
 		if (recoveryNoticePending)
 		{
@@ -2325,231 +1655,43 @@ public void onRuneScapeProfileChanged(
 			assignmentNoticeRsn = null;
 			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "Huntmaster RuneLite Plugin " + message, null);
 		}
-		if (reliabilityNotice != null && sameRsn(reliabilityRsn, client.getLocalPlayer().getName()))
-		{
-			String message = reliabilityNotice;
-			reliabilityNotice = null;
-			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "Huntmaster RuneLite Plugin " + message, null);
-		}
 	}
 
 	@Subscribe
 	public void onGameStateChanged(GameStateChanged event)
 	{
-		if (event.getGameState() != GameState.LOGGED_IN) recruitmentNotifications.reset();
+		if (event.getGameState() != GameState.LOGGED_IN) { recruitmentNotifications.reset(); serverVerification.release(); }
 		if (event.getGameState() == GameState.LOGGED_IN) accountSnapshotLoginTick = client.getTickCount();
 		nextAccountSnapshotAt = System.currentTimeMillis() + 10_000L;
+		if (event.getGameState() == GameState.LOGIN_SCREEN) serverVerification.reset();
 		if (running && event.getGameState() == GameState.LOGIN_SCREEN)
 		{
 			if (reportsEnabled) diagnostic(() -> interruptEncounterCaptures(client.getTickCount(), EncounterObservation.Reason.LOGOUT));
+			resetLinkRequests();
 			logoutObserved = true;
 		}
-	}
-
-	private String verificationReliabilityKey()
-	{
-		String normalized = reliabilityRsn.replace('\u00a0', ' ').trim().toLowerCase(java.util.Locale.ROOT);
-		return "verificationReliability_" + Base64.getUrlEncoder().withoutPadding()
-				.encodeToString(normalized.getBytes(StandardCharsets.UTF_8));
 	}
 
 	private void updateVerificationRecovery()
 	{
 		Player player = client.getLocalPlayer();
-		if (!running || !connectionInitialized || client.getGameState() != GameState.LOGGED_IN
-				|| player == null || player.getName() == null)
-		{
-			return;
-		}
-		if (!sameRsn(player.getName(), reliabilityRsn))
+		if (!running || client.getGameState() != GameState.LOGGED_IN || player == null) return;
+		if (!sameRsn(player.getName(), reliabilityRsn) || logoutObserved)
 		{
 			reliabilityRsn = player.getName();
-			reliabilityNotice = null;
-			lastReliabilityFailureTick = -1;
-			String saved = configManager.getConfiguration(HUNTMASTER_CONFIG_GROUP, verificationReliabilityKey());
-			try
-			{
-				JsonObject state = saved == null ? null : gson.fromJson(saved, JsonObject.class);
-				reliability.restore(state == null ? 0 : state.get("failures").getAsInt());
-			}
-			catch (RuntimeException ex)
-			{
-				// Malformed saved state must not silently bypass the safety pause.
-				reliability.restore(VerificationReliabilityState.FAILURE_THRESHOLD);
-				log.debug("Huntmaster could not restore verification reliability", ex);
-			}
-			refreshDetectorBaselines();
-			if (reliability.isPaused())
-			{
-				reliabilityNotice = "Kill verification is paused. Log out and back in to reset verification baselines. Uncertain kills are not credited.";
-			}
-		}
-		if (logoutObserved)
-		{
 			logoutObserved = false;
-			boolean wasPaused = reliability.isPaused();
 			reliability.restore(0);
-			lastReliabilityFailureTick = -1;
-			saveVerificationReliability();
+			serverVerification.reset();
 			refreshDetectorBaselines();
 			assignmentSyncRequired = true;
 			refreshAssignment();
-			reliabilityNotice = wasPaused
-					? "Relog reset kill verification baselines. Uncertain kills were not credited. New kills can be tracked once your assignment and connection are ready."
-					: null;
-		}
-	}
-
-	private void saveVerificationReliability()
-	{
-		JsonObject saved = new JsonObject();
-		saved.addProperty("failures", reliability.getFailures());
-		configManager.setConfiguration(HUNTMASTER_CONFIG_GROUP, verificationReliabilityKey(), gson.toJson(saved));
-	}
-
-	private void recordVerificationFailure(String bossName, String kind, String reason)
-	{
-		if (!canTrackNewKills() || !matchesAssignedBoss(bossName)
-				|| lastReliabilityFailureTick == client.getTickCount())
-		{
-			return;
-		}
-		lastReliabilityFailureTick = client.getTickCount();
-		if (!reliability.recordFailure())
-		{
-			return;
-		}
-		saveVerificationReliability();
-		JsonObject diagnostic = new JsonObject();
-		recordVerificationTelemetry(bossName, "ambiguous".equals(kind)
-				? VerificationTelemetry.Outcome.AMBIGUOUS : VerificationTelemetry.Outcome.UNRESOLVED);
-		diagnostic.addProperty("recordedAt", System.currentTimeMillis());
-		diagnostic.addProperty("assignmentId", assignmentId);
-		diagnostic.addProperty("boss", bossName);
-		diagnostic.addProperty("kind", kind);
-		diagnostic.addProperty("reason", reason);
-		diagnostic.addProperty("consecutiveFailures", reliability.getFailures());
-		// Keep the latest report locally; broader telemetry is a separate roadmap item.
-		configManager.setConfiguration(HUNTMASTER_CONFIG_GROUP, verificationReliabilityKey() + "_diagnostic", gson.toJson(diagnostic));
-		log.debug("Huntmaster verification reliability report: {}", diagnostic);
-		if (reliability.isPaused())
-		{
-			refreshDetectorBaselines();
-			reliabilityNotice = "Kill tracking paused after three consecutive unverifiable kill events. Log out and back in to reset verification baselines. Uncertain kills are not credited; previously verified saved kills are preserved.";
-		}
-		else if (reliability.getFailures() == 1)
-		{
-			reliabilityNotice = "Could not verify a kill for " + bossName + ". It was not credited. Tracking will pause after three consecutive verification failures.";
-		}
-	}
-
-	private void loadVerificationTelemetry()
-	{
-		verificationTelemetry = new JsonObject();
-		String saved = configManager.getConfiguration(HUNTMASTER_CONFIG_GROUP, VERIFICATION_TELEMETRY_KEY);
-		if (saved == null)
-		{
-			return;
-		}
-		try
-		{
-			if (saved.length() > 131_072)
-			{
-				throw new IllegalArgumentException("Oversized telemetry configuration");
-			}
-			JsonObject restored = gson.fromJson(saved, JsonObject.class);
-			if (restored != null)
-			{
-				verificationTelemetry = restored;
-				trimVerificationTelemetry();
-			}
-		}
-		catch (RuntimeException ex)
-		{
-			verificationTelemetry = new JsonObject();
-			log.debug("Huntmaster ignored malformed verification telemetry", ex);
-		}
-	}
-
-	private void trimVerificationTelemetry()
-	{
-		while (verificationTelemetry.size() > MAX_TELEMETRY_ENTRIES)
-		{
-			String oldestKey = null;
-			long oldestTime = Long.MAX_VALUE;
-			for (Map.Entry<String, com.google.gson.JsonElement> entry : verificationTelemetry.entrySet())
-			{
-				long updatedAt = 0;
-				try
-				{
-					updatedAt = entry.getValue().getAsJsonObject().get("updatedAt").getAsLong();
-				}
-				catch (RuntimeException ignored)
-				{
-					// Malformed entries are evicted first.
-				}
-				if (oldestKey == null || updatedAt < oldestTime)
-				{
-					oldestKey = entry.getKey();
-					oldestTime = updatedAt;
-				}
-			}
-			verificationTelemetry.remove(oldestKey);
-		}
-	}
-
-	private void recordVerificationTelemetry(String bossName, VerificationTelemetry.Outcome outcome)
-	{
-		// Diagnostic failures must never interrupt KC queuing or verification safety.
-		try
-		{
-			BossDetector detector = registeredDetector(bossName);
-			if (detector == null)
-			{
-				return;
-			}
-			String key = bossName + "|" + detector.getDetectorType() + "|" + detector.getDetectorVersion();
-			VerificationTelemetry stats = new VerificationTelemetry();
-			try
-			{
-				JsonObject old = verificationTelemetry.getAsJsonObject(key);
-				if (old != null)
-				{
-					stats.restore(old.get("verified").getAsLong(), old.get("unresolved").getAsLong(), old.get("ambiguous").getAsLong());
-				}
-			}
-			catch (RuntimeException ex)
-			{
-				log.debug("Huntmaster reset malformed telemetry entry for {}", key, ex);
-			}
-			stats.record(outcome);
-			JsonObject snapshot = new JsonObject();
-			snapshot.addProperty("boss", bossName);
-			snapshot.addProperty("detectorType", detector.getDetectorType().name());
-			snapshot.addProperty("detectorVersion", detector.getDetectorVersion());
-			snapshot.addProperty("completedAttempts", stats.getCompletedAttempts());
-			snapshot.addProperty("verified", stats.getVerified());
-			snapshot.addProperty("unresolved", stats.getUnresolved());
-			snapshot.addProperty("ambiguous", stats.getAmbiguous());
-			snapshot.addProperty("verificationRate", stats.getVerificationRate());
-			snapshot.addProperty("pauseThreshold", VerificationReliabilityState.FAILURE_THRESHOLD);
-			snapshot.addProperty("thresholdBasis", "consecutive_verification_failures");
-			snapshot.addProperty("updatedAt", System.currentTimeMillis());
-			verificationTelemetry.add(key, snapshot);
-			trimVerificationTelemetry();
-			configManager.setConfiguration(HUNTMASTER_CONFIG_GROUP, VERIFICATION_TELEMETRY_KEY, gson.toJson(verificationTelemetry));
-			log.debug("Huntmaster local verification telemetry: {}", snapshot);
-		}
-		catch (RuntimeException ex)
-		{
-			log.debug("Huntmaster could not update local verification telemetry", ex);
 		}
 	}
 
 	private void recoverConnectionIfReady()
 	{
 		// A healthy endpoint alone cannot reconcile undelivered events.
-		if (!healthReachable || assignmentSyncRequired || !pendingKcEvents.isEmpty()
+		if (!healthReachable || assignmentSyncRequired || pendingKcEvents.values().stream().anyMatch(entry -> sameRsn(assignmentRsn, entry.rsn))
 			|| hasPendingBetaCredit() || outage.getStartedAt() == 0)
 		{
 			return;
@@ -2644,7 +1786,8 @@ public void onRuneScapeProfileChanged(
 					JsonObject task = state.getAsJsonObject("assignment");
 					newId = task.get("id").getAsString();
 					newBoss = task.get("boss").getAsString();
-					if (newId.isEmpty() || newBoss.isEmpty())
+					UUID.fromString(newId);
+					if (newBoss.trim().isEmpty() || newBoss.length() > 128)
 					{
 						throw new IllegalArgumentException("Incomplete solo assignment");
 					}
@@ -2658,20 +1801,7 @@ public void onRuneScapeProfileChanged(
 				if (registrationConfirmed) { membershipDenied = false; linkNoticeShown = false; }
 				assignmentRsn = rsn;
 				if (changed && reportsEnabled) diagnostic(() -> interruptEncounterCaptures(client.getTickCount(), EncounterObservation.Reason.ASSIGNMENT_CHANGED));
-				if (!registrationConfirmed)
-				{
-					clearEncounterCaptures();
-					for (EncounterReportQueue.Entry queued : reportQueue.snapshot())
-					{
-						try
-						{
-							JsonObject report = gson.fromJson(queued.payload, JsonObject.class);
-							if (sameRsn(rsn, report.get("rsn").getAsString())) reportQueue.acknowledge(queued.id);
-						}
-						catch (RuntimeException ex) { reportQueue.acknowledge(queued.id); }
-					}
-					saveEncounterReports();
-				}
+				if (!registrationConfirmed) clearEncounterCaptures();
 				assignmentId = newId;
 				assignedBoss = newBoss;
 				assignmentSyncRequired = false;
@@ -2759,8 +1889,6 @@ public void onRuneScapeProfileChanged(
 
 	private void refreshDetectorBaseline(BossDetector detector, boolean loggedIn)
 	{
-		detector.resetVerification();
-		detector.getState().setLastVerifiedTick(-1);
 		Integer baseline = null;
 		if (loggedIn)
 		{
@@ -2792,7 +1920,8 @@ public void onRuneScapeProfileChanged(
 	}
 	private static boolean isBetaCredit(JsonObject report)
 	{
-		return report.has("trackingMode") && "beta_candidate".equals(report.get("trackingMode").getAsString());
+		return report.has("trackingMode") && ("beta_candidate".equals(report.get("trackingMode").getAsString())
+			|| "server_observation".equals(report.get("trackingMode").getAsString()));
 	}
 
 	private boolean encounterCommunicationEnabled()
@@ -2803,6 +1932,8 @@ public void onRuneScapeProfileChanged(
 
 	private void resetLinkRequests()
 	{
+		serverVerification.release();
+		nextHealthCheckAt = 0;
 		++requestGeneration;
 		accountSnapshotInFlight = false;
 		nextAccountSnapshotAt = 0;
@@ -2820,6 +1951,7 @@ public void onRuneScapeProfileChanged(
 		membershipDenied = true;
 		// Membership rejection is retried through registration refresh; no credentials.
 		resetLinkRequests();
+		if (reportsEnabled) diagnostic(() -> interruptEncounterCaptures(client.getTickCount(), EncounterObservation.Reason.ASSIGNMENT_CHANGED));
 		clearEncounterCaptures();
 		saveEncounterReports();
 		savePendingKcEvents();
@@ -2829,7 +1961,7 @@ public void onRuneScapeProfileChanged(
 		if (!running || HUNTMASTER_API_BASE_URL == null || !membershipDenied
 			|| linkNoticeShown || client.getGameState() != GameState.LOGGED_IN || client.getLocalPlayer() == null) return;
 		linkNoticeShown = true;
-		client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "Huntmaster could not confirm your RSN belongs to an active Bosscape member. Check your registration in Bosscape Discord. Tracking is paused; saved reports are preserved and the connection will retry.", null);
+		client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "Huntmaster could not confirm your Bosscape registration or membership right now. Tracking is paused; saved reports are preserved and the connection will retry. If this continues, check your registration in Bosscape Discord.", null);
 	}
 
 	private void observeAssignedSpecialTotal()
@@ -2890,23 +2022,13 @@ public void onRuneScapeProfileChanged(
 		if (canObserve(detector)) diagnostic(() -> encounterCapture.loot(detector, client.getLocalPlayer().getName(), assignmentId,
 			client.getTickCount(), System.currentTimeMillis()));
 	}
-	private static EncounterObservation.Method observationMethod(String method)
-	{
-		switch (method)
-		{
-			case "completion message + completion total increase": return EncounterObservation.Method.COMPLETION_AND_COUNTER;
-			case "activity completion message + activity count increase": return EncounterObservation.Method.ACTIVITY_AND_COUNTER;
-			case "death event + loot": return EncounterObservation.Method.DEATH_AND_LOOT;
-			case "KC increase + loot": return EncounterObservation.Method.COUNTER_AND_LOOT;
-			default: return EncounterObservation.Method.DEATH_AND_COUNTER;
-		}
-	}
+
 	private void queueEncounterReport(EncounterObservation.Snapshot snapshot)
 	{
 		if (!reportsEnabled) return;
 		try
 		{
-			JsonObject report = EncounterReportCodec.encode(snapshot);
+			JsonObject report = EncounterReportCodec.encodeObservation(snapshot);
 			String payload = report.toString();
 			boolean added = reportQueue.add(snapshot.reportId.toString(), payload, snapshot.observedAt,
 				System.currentTimeMillis(), isBetaCredit(report));
@@ -2960,12 +2082,18 @@ public void onRuneScapeProfileChanged(
 		Player reportPlayer = client.getLocalPlayer();
 		if (!reportsEnabled || !registrationConfirmed || assignmentSyncRequired || !healthReachable
 				|| reportPlayer == null || !sameRsn(reportPlayer.getName(), assignmentRsn)) return;
-		EncounterReportQueue.Entry entry = reportQueue.next(System.currentTimeMillis());
+		EncounterReportQueue.Entry entry = reportQueue.next(System.currentTimeMillis(), candidate ->
+		{
+			try { return sameRsn(reportPlayer.getName(), gson.fromJson(candidate.payload, JsonObject.class).get("rsn").getAsString()); }
+			catch (RuntimeException ex) { return true; } // Let the malformed-entry handler quarantine it.
+		});
 		saveEncounterReports();
 		if (entry == null) return;
+		String reportRoute;
 		try
 		{
 			JsonObject report = gson.fromJson(entry.payload, JsonObject.class);
+			reportRoute = EncounterReportCodec.deliveryRoute(report);
 			if (!sameRsn(reportPlayer.getName(), report.get("rsn").getAsString()))
 			{
 				entry.nextAttemptAt = System.currentTimeMillis() + 60000;
@@ -2974,20 +2102,23 @@ public void onRuneScapeProfileChanged(
 		}
 		catch (RuntimeException ex) { reportQueue.acknowledge(entry.id); saveEncounterReports(); return; }
 		entry.inFlight = true;
-		Request request = new Request.Builder().url(HUNTMASTER_API_BASE_URL + "/api/runelite/encounter-reports")
+		Request request = new Request.Builder().url(HUNTMASTER_API_BASE_URL + reportRoute)
 			.post(RequestBody.create(MediaType.parse("application/json"), entry.payload)).build();
 		enqueueRequest(request, (status, response) ->
 		{
 			entry.inFlight = false;
 			boolean accepted = false;
+			boolean completed = false;
 			try
 			{
 				if (status == 200)
 				{
 					JsonObject result = gson.fromJson(response, JsonObject.class);
 					String resultStatus = result.get("status").getAsString();
-					accepted = entry.id.equals(result.get("reportId").getAsString())
+					accepted = result.get("success").getAsBoolean() && entry.id.equals(result.get("reportId").getAsString())
 						&& ("stored".equals(resultStatus) || "duplicate".equals(resultStatus));
+					JsonObject credit = result.has("serverCredit") ? result.getAsJsonObject("serverCredit") : result.has("betaCredit") ? result.getAsJsonObject("betaCredit") : null;
+					completed = accepted && credit != null && credit.has("status") && "task_completed".equals(credit.get("status").getAsString());
 				}
 			}
 			catch (RuntimeException ex) { log.debug("Huntmaster invalid diagnostic acknowledgement", ex); }
@@ -2998,12 +2129,12 @@ public void onRuneScapeProfileChanged(
 				entry.nextAttemptAt = System.currentTimeMillis() + 60_000L;
 				if (entry.creditCandidate) markConnectionFailure();
 			}
+			if (completed) { assignmentSyncRequired = true; refreshAssignment(); }
 			log.debug("Huntmaster encounter report {} response {} accepted={}", entry.id, status, accepted);
 			saveEncounterReports();
 			recoverConnectionIfReady();
 		});
 	}
-
 
 	private void diagnostic(Runnable action)
 	{
@@ -3014,10 +2145,10 @@ public void onRuneScapeProfileChanged(
 	@Subscribe
 	public void onConfigChanged(ConfigChanged event)
 	{
-		if (HUNTMASTER_CONFIG_GROUP.equals(event.getGroup()) && event.getKey().startsWith("recruitment_"))
-			clientThread.invokeLater(recruitmentNotifications::reset);
-		if (!"killcount".equals(event.getGroup())) return;
 		final long session = lifecycle;
+		if (HUNTMASTER_CONFIG_GROUP.equals(event.getGroup()) && event.getKey().startsWith("recruitment_"))
+			clientThread.invokeLater(() -> { if (running && lifecycle == session) recruitmentNotifications.reset(); });
+		if (!"killcount".equals(event.getGroup())) return;
 		clientThread.invokeLater(() ->
 		{
 			if (!running || lifecycle != session || !canTrackNewKills() || !encounterCapture.hasActiveCapture()) return;
@@ -3035,11 +2166,7 @@ public void onRuneScapeProfileChanged(
 		});
 	}
 
-	private boolean evidenceOnlyBoss(String boss)
-	{
-		BossDetector detector = registeredDetector(boss);
-		return detector != null && detector.getDefinition().isEvidenceOnly();
-	}
+
 	private void observeEvidenceOnlyMessage(BossDetector detector, String message)
 	{
 		Integer total = EvidenceOnlyCounter.parse(message, detector.getKcMessagePrefix());

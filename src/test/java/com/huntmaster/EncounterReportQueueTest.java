@@ -81,4 +81,15 @@ public class EncounterReportQueueTest
 		EncounterReportQueue q = new EncounterReportQueue(); q.add("one", "{}", 1000, 1000);
 		q.clear(); assertNull(q.next(1000));
 	}
+
+ @Test public void collectionStopsBeforeMemoryGrowthButSavedEventsSurvive(){
+  EncounterReportQueue q=new EncounterReportQueue();
+  for(int i=0;i<1000;i++)assertTrue(q.add("saved"+i,"{}",1000,1000,true));
+  assertTrue(q.collectionBackpressured());assertEquals(1000,q.snapshot().length);
+  q.acknowledge("saved0");assertFalse(q.collectionBackpressured());assertEquals(999,q.snapshot().length);
+ }
+ @Test public void anotherAccountsQueueDoesNotDelayEligibleDelivery(){
+  EncounterReportQueue q=new EncounterReportQueue();q.add("other","{}",1000,1000,true);q.add("current","{}",1000,1000,true);
+  assertEquals("current",q.next(1000,e->e.id.equals("current")).id);assertEquals(2,q.snapshot().length);
+ }
 }

@@ -4,7 +4,7 @@ final class BossDetector
 {
     private final BossDefinition definition;
 
-    private final BossVerificationState state;
+
 
     /*
      * STANDARD_NPC:
@@ -22,9 +22,6 @@ final class BossDetector
         this.definition =
                 definition;
 
-        this.state =
-                new BossVerificationState();
-
         this.lastKc =
                 null;
     }
@@ -39,10 +36,7 @@ final class BossDetector
         return definition;
     }
 
-    public BossVerificationState getState()
-    {
-        return state;
-    }
+
 
 
     // ==================================================
@@ -107,19 +101,5 @@ final class BossDetector
     // VERIFICATION WINDOW
     // ==================================================
 
-    public void startPendingVerification()
-    {
-        state.setPendingVerification(
-                true
-        );
 
-        state.setPendingTicksRemaining(
-                definition.getPendingWindowTicks()
-        );
-    }
-
-    public void resetVerification()
-    {
-        state.reset();
-    }
 }

@@ -35,7 +35,10 @@ public class RecruitmentNotificationsTest
         RecruitmentNotifications state = new RecruitmentNotifications();
         state.complete(state.begin("Player", Set.of("toa"), 1000), response("0:1000", null), 1001);
         RecruitmentNotifications.Poll old = state.begin("Player", Set.of("toa"), 6000);
+        assertTrue(state.isCurrent(old));
         state.reset();
+        assertFalse(state.isCurrent(old));
+        assertFalse(state.isCurrent(null));
         assertTrue(state.complete(old, response("1:6000", "1", "toa"), 6001).isEmpty());
         assertTrue(state.complete(state.begin("Other", Set.of("toa"), 7000), response("1:7000", "1", "toa"), 7001).isEmpty());
         assertTrue(state.complete(state.begin("Other", Set.of("toa"), 30000), response("2:30000", "2", "toa"), 30001).isEmpty());

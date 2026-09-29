@@ -13,6 +13,12 @@ final class EncounterReportCodec
 	private static final java.util.regex.Pattern DAGANNOTH_VERSION =
 		java.util.regex.Pattern.compile("dagannoth-(rex|prime|supreme)-beta-v1");
 	private EncounterReportCodec() { }
+	static String deliveryRoute(JsonObject report)
+	{
+		return report.has("trackingMode") && !report.get("trackingMode").isJsonNull()
+			&& "server_observation".equals(report.get("trackingMode").getAsString())
+			? "/api/runelite/observations" : "/api/runelite/encounter-reports";
+	}
 	static JsonObject encode(EncounterObservation.Snapshot s)
 	{
 		JsonObject body = new JsonObject();
@@ -53,6 +59,16 @@ final class EncounterReportCodec
 			signals.add(item);
 		}
 		body.add("signals", signals);
+		return body;
+	}
+	static JsonObject encodeObservation(EncounterObservation.Snapshot snapshot)
+	{
+		JsonObject body = encode(snapshot);
+		body.addProperty("trackingMode", "server_observation");
+		body.remove("verificationMethod");
+		body.remove("creditEventId");
+		body.addProperty("outcome", snapshot.captureComplete ? "unresolved" : "interrupted");
+		body.addProperty("reason", snapshot.captureComplete ? "window_expired" : lower(snapshot.interruptionReason));
 		return body;
 	}
 	private static String lower(Enum<?> value) { return value.name().toLowerCase(Locale.ROOT); }

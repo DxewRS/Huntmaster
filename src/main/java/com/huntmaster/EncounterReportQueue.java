@@ -23,6 +23,9 @@ final class EncounterReportQueue
 	private long payloadBytes;
 	private int diagnosticCount;
 	long revision() { return revision; }
+	// Stop new collection before a persistent outage can grow memory indefinitely.
+	// Already captured/saved events always remain deliverable.
+	boolean collectionBackpressured() { return entries.size() >= 1000 || payloadBytes >= 8L * MAX_BYTES; }
 	boolean add(String id, String payload, long createdAt, long now)
 	{
 		return add(id, payload, createdAt, now, false);
@@ -58,13 +61,14 @@ final class EncounterReportQueue
 			}
 		}
 	}
-	Entry next(long now)
+	Entry next(long now) { return next(now, entry -> true); }
+	Entry next(long now, java.util.function.Predicate<Entry> eligible)
 	{
 		prune(now);
 		// One diagnostic request at a time, independently of KC delivery.
 		if (entries.values().stream().anyMatch(entry -> entry.inFlight)) return null;
-		for (Entry entry : entries.values()) if (entry.creditCandidate && entry.nextAttemptAt <= now) return entry;
-		for (Entry entry : entries.values()) if (entry.nextAttemptAt <= now) return entry;
+		for (Entry entry : entries.values()) if (entry.creditCandidate && entry.nextAttemptAt <= now && eligible.test(entry)) return entry;
+		for (Entry entry : entries.values()) if (entry.nextAttemptAt <= now && eligible.test(entry)) return entry;
 		return null;
 	}
 	private void removed(Entry entry)

@@ -52,9 +52,14 @@ final class RecruitmentNotifications
         return pending;
     }
 
+    boolean isCurrent(Poll poll)
+    {
+        return poll != null && poll == pending && poll.generation == generation;
+    }
+
     List<String> complete(Poll poll, JsonObject body, long now)
     {
-        if (poll != pending || poll.generation != generation) return Collections.emptyList();
+        if (!isCurrent(poll)) return Collections.emptyList();
         pending = null;
         if (body == null || now - poll.startedAt > 10000) { reset(); return Collections.emptyList(); }
         try
