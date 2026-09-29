@@ -1,0 +1,3 @@
+repository=https://github.com/DxewRS/Huntmaster.git
+commit=c427c8a088d59cde767defa67299cd8bbd07ac28
+warning=Sends your RuneScape name, kill/encounter evidence,<br>account requirements and IP address to Bosscape (a third party).<br>This service is not controlled or verified by RuneLite developers.<br>Disable Huntmaster to stop sharing.

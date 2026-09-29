@@ -6,6 +6,7 @@
 *.db-shm
 *.db-wal
 build
+bin/
 build-backup*/
 *.class
 .idea/

@@ -22,8 +22,16 @@ Pending kills retain their event/assignment IDs across retries and restarts. Dur
 
 Use Java 11. Run `./gradlew test` for automated checks and `./gradlew run` for the local development client. Jagex Account users should follow [RuneLite's login instructions](https://github.com/runelite/runelite/wiki/Using-Jagex-Accounts). Only the player can validate game behavior.
 
-`./gradlew runPublic` launches a development client against the packaged endpoint without the localhost override, once its release gate is enabled. See [SUBMISSION_CHECKLIST.md](SUBMISSION_CHECKLIST.md) for pending review and release checks. The plugin uses a BSD-2-Clause license.
+`./gradlew runPublic` launches a development client against the packaged endpoint without the localhost override, once its release gate is enabled. The plugin uses a BSD-2-Clause license.
 
-See [CLEANUP_AUDIT.md](CLEANUP_AUDIT.md) for the code cleanup, regression coverage, and pending player checks.
+Version 1.1 is prepared locally and has not been published. Before release, test recruitment alerts in-game: selected activities, your own and manual Active Group pings, opt-out, duplicate protection, and no replay after login/reconnect. Then commit the release and update the commit in [submission/huntmaster.marker](submission/huntmaster.marker) for Plugin Hub submission, retaining its installation warning. The marker currently references the earlier release.
 
 The bot independently checks published HiScores totals for accepted plugin credit. Ordinary progression remains immediate; unknown/delayed totals remain uncorroborated and contradictions request staff review. `/huntmaster-verification` shows your status in Bosscape. These checks add confidence, not cryptographic gameplay proof. High-value reward verification requires independent support or recorded staff approval under a separate reward policy.
+
+## Group recruitment alerts (1.1)
+
+Expand Raids, Wilderness Bosses, God Wars Dungeon, Other Group Bosses, or Skilling Bosses & Activities in Huntmaster settings and check the activities you want. All 32 boxes start off: 31 current Bosscape queue activities and The Fractured Archive (planned). No master switch, desktop notification, test button or sidebar is added.
+
+Successful queue recruitment pings, including manual Active Group pings and your own pings, produce: `Huntmaster: Someone is looking for members for Tombs of Amascut. Join through Bosscape Discord.` Multiple selected activities in one ping share one message. Polling runs every five seconds while logged in with at least one activity selected; it does not wait for combat to end. You need an RSN linked to an active Bosscape member, but no Huntmaster assignment.
+
+Login, reconnect, account/profile changes and preference changes start at the live edge; missed alerts are not replayed. Failed sends, silent edits, previews and duplicate deliveries do not generate additional messages. Very old pings and groups that have stopped recruiting are omitted.

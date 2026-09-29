@@ -64,6 +64,32 @@ public class HuntmasterPlugin extends Plugin
 	private long nextAccountSnapshotAt;
 	private int accountSnapshotLoginTick;
 	private boolean accountSnapshotInFlight;
+	private final RecruitmentNotifications recruitmentNotifications = new RecruitmentNotifications();
+
+	private void updateRecruitmentNotifications()
+	{
+		Player player = client.getLocalPlayer();
+		if (!running || !encounterCommunicationEnabled() || client.getGameState() != GameState.LOGGED_IN || player == null)
+		{ recruitmentNotifications.reset(); return; }
+		Set<String> selected = new java.util.HashSet<>();
+		for (RecruitmentActivity activity : RecruitmentActivity.values())
+			if (Boolean.parseBoolean(configManager.getConfiguration(HUNTMASTER_CONFIG_GROUP, activity.configKey()))) selected.add(activity.id);
+		RecruitmentNotifications.Poll poll = recruitmentNotifications.begin(player.getName(), selected, System.currentTimeMillis());
+		if (poll == null) return;
+		HttpUrl.Builder url = HttpUrl.parse(HUNTMASTER_API_BASE_URL + "/api/runelite/recruitment").newBuilder()
+			.addQueryParameter("rsn", poll.rsn);
+		if (poll.cursor != null) url.addQueryParameter("cursor", poll.cursor);
+		enqueueRequest(new Request.Builder().url(url.build()).header("Cache-Control", "no-cache").build(), (status, body) ->
+		{
+			JsonObject response = null;
+			try { if (status == 200 && body.length() <= 65536) response = gson.fromJson(body, JsonObject.class); }
+			catch (RuntimeException ignored) { /* A failed poll resets the live edge. */ }
+			if (client.getGameState() != GameState.LOGGED_IN || client.getLocalPlayer() == null
+				|| !sameRsn(client.getLocalPlayer().getName(), poll.rsn)) { recruitmentNotifications.reset(); return; }
+			for (String message : recruitmentNotifications.complete(poll, response, System.currentTimeMillis()))
+				client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", message, null);
+		}, false);
+	}
 
 	private void updateAccountSnapshot()
 	{
@@ -297,6 +323,7 @@ public class HuntmasterPlugin extends Plugin
 	@Override
 	protected void startUp()
 	{
+		recruitmentNotifications.reset();
 		membershipDenied = false;
 		accountSnapshotInFlight = false;
 		nextAccountSnapshotAt = System.currentTimeMillis() + 10_000L;
@@ -423,6 +450,7 @@ public class HuntmasterPlugin extends Plugin
 					diagnostic(this::updateEncounterReports);
 					testHuntmasterApiConnection();
 					diagnostic(this::updateAccountSnapshot);
+					diagnostic(this::updateRecruitmentNotifications);
 				}
 			}), 0, HUNTMASTER_RETRY_DELAY_MS, TimeUnit.MILLISECONDS);
 		});
@@ -445,6 +473,7 @@ public class HuntmasterPlugin extends Plugin
 	@Override
 	protected void shutDown()
 	{
+		recruitmentNotifications.reset();
 		if (reportsEnabled) diagnostic(() -> interruptEncounterCaptures(client.getTickCount(), EncounterObservation.Reason.SHUTDOWN));
 		saveEncounterReports();
 		clearEncounterCaptures();
@@ -742,6 +771,7 @@ public class HuntmasterPlugin extends Plugin
 public void onRuneScapeProfileChanged(
 		RuneScapeProfileChanged event)
 {
+	recruitmentNotifications.reset();
 	loadObservedBaselines();
 	for (BossDetector detector : bossDetectors)
 	{
@@ -2177,6 +2207,11 @@ public void onRuneScapeProfileChanged(
 	/** Read response bodies on OkHttp's pool; mutate plugin/client state on the client thread. */
 	private void enqueueRequest(Request request, BiConsumer<Integer, String> completion)
 	{
+		enqueueRequest(request, completion, true);
+	}
+
+	private void enqueueRequest(Request request, BiConsumer<Integer, String> completion, boolean rejectAuthentication)
+	{
 		if (!encounterCommunicationEnabled()) return;
 		long session = lifecycle;
 		long generation = requestGeneration;
@@ -2210,7 +2245,7 @@ public void onRuneScapeProfileChanged(
 				{
 					if (running && lifecycle == session && requestGeneration == generation && encounterCommunicationEnabled())
 					{
-						if (status == 401 || status == 403) { rejectLink(); return; }
+						if (rejectAuthentication && (status == 401 || status == 403)) { rejectLink(); return; }
 						completion.accept(status, body);
 					}
 				});
@@ -2301,6 +2336,7 @@ public void onRuneScapeProfileChanged(
 	@Subscribe
 	public void onGameStateChanged(GameStateChanged event)
 	{
+		if (event.getGameState() != GameState.LOGGED_IN) recruitmentNotifications.reset();
 		if (event.getGameState() == GameState.LOGGED_IN) accountSnapshotLoginTick = client.getTickCount();
 		nextAccountSnapshotAt = System.currentTimeMillis() + 10_000L;
 		if (running && event.getGameState() == GameState.LOGIN_SCREEN)
@@ -2978,6 +3014,8 @@ public void onRuneScapeProfileChanged(
 	@Subscribe
 	public void onConfigChanged(ConfigChanged event)
 	{
+		if (HUNTMASTER_CONFIG_GROUP.equals(event.getGroup()) && event.getKey().startsWith("recruitment_"))
+			clientThread.invokeLater(recruitmentNotifications::reset);
 		if (!"killcount".equals(event.getGroup())) return;
 		final long session = lifecycle;
 		clientThread.invokeLater(() ->
