@@ -21,9 +21,12 @@ final class EncounterReportCodec
 	{
 		JsonObject body = new JsonObject();
 		body.addProperty("schemaVersion", 1);
+		body.addProperty("collectorVersion", "2");
+        body.addProperty("pluginBuild", CollectorDiagnostics.BUILD);
+        body.addProperty("collectionPolicyRevision", s.policyRevision);
 		body.addProperty("trackingMode", "server_observation");
 		body.addProperty("reportId", s.reportId.toString());
-		body.addProperty("assignmentId", s.assignmentId.toString());
+		body.addProperty("assignmentId", s.assignmentId == null ? null : s.assignmentId.toString());
 		body.addProperty("rsn", s.rsn);
 		body.addProperty("boss", s.boss);
 		body.addProperty("detectorType", s.detectorType.name());

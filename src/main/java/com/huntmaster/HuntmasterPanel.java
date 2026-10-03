@@ -29,6 +29,9 @@ final class HuntmasterPanel extends PluginPanel
     private final JLabel reward=label("",BODY,Color.WHITE);
     private final JLabel message=label("",BODY,MUTED);
     private final JLabel connection=label("",BODY,MUTED);
+    private final JLabel collection=label("",BODY,MUTED);
+    private final JLabel report=label("",BODY,MUTED);
+    private String diagnosticText="No diagnostics available";
     private AssignmentDashboardState.View latest;
     private boolean active;
 
@@ -49,6 +52,12 @@ final class HuntmasterPanel extends PluginPanel
         discord.setToolTipText("Manage your assignment in Bosscape Discord");
         discord.setMaximumSize(new Dimension(Integer.MAX_VALUE,32));
         discord.addActionListener(e->LinkBrowser.browse(DISCORD_URL));add(discord);gap(22);
+        add(section("TRACKING STATUS",MUTED));gap(8);add(collection);gap(6);add(report);gap(8);
+        JButton copy=new JButton("Copy diagnostics");copy.setFont(BODY);
+        copy.setToolTipText("Copy support details without your account name or private credentials");
+        copy.addActionListener(e->{try{Toolkit.getDefaultToolkit().getSystemClipboard().setContents(new java.awt.datatransfer.StringSelection(diagnosticText),null);copy.setText("Copied");}
+            catch(RuntimeException ex){copy.setText("Copy unavailable");}});
+        add(copy);gap(18);
         add(section("ABOUT HUNTMASTER",MUTED));gap(10);
         JLabel about=label(wrap("Huntmaster connects RuneLite with the Bosscape Discord to track PvM assignments.<br><br>Complete assignments to earn points, climb the leaderboards, and unlock Huntmaster ranks.",201),BODY,MUTED);
         add(about);gap(10);
@@ -77,6 +86,8 @@ final class HuntmasterPanel extends PluginPanel
         button.addActionListener(e->LinkBrowser.browse(url));return button;
     }
     void update(AssignmentDashboardState.View view){latest=view;if(active)render();}
+    void diagnostics(String state,String lastReport,String text)
+    { collection.setText(wrap(html(state),201));report.setText(wrap(html(lastReport),201));diagnosticText=text;revalidate();repaint(); }
     @Override public void onActivate(){active=true;render();}
     @Override public void onDeactivate(){active=false;}
     private void render()

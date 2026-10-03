@@ -7,8 +7,19 @@ import net.runelite.client.util.Text;
 /** Conservative counterpart to RuneLite Chat Commands' shared personal-counter parser. */
 final class GenericKcRouter
 {
+    private static final String COUNTER_PREFIX =
+        "^Your (?:completion count for |subdued |completed )?(.+?) (?:kill |harvest |completion |success )?(?:count )?is:";
     private static final Pattern COUNTER = Pattern.compile(
-        "^Your (?:completion count for |subdued |completed )?(.+?) (?:kill |harvest |completion |success )?(?:count )?is: ?([0-9][0-9,]*)(?:\\.|$|\\s)", Pattern.CASE_INSENSITIVE);
+        COUNTER_PREFIX + " ?([0-9][0-9,]*)(?:\\.|$|\\s)", Pattern.CASE_INSENSITIVE);
+    private static final Pattern COUNTER_IDENTITY = Pattern.compile(COUNTER_PREFIX, Pattern.CASE_INSENSITIVE);
+
+    // Keep the exact encounter identity even when its counter value is unreadable.
+    static boolean identifies(String message, String boss)
+    {
+        if (!eligible(boss) || message == null || message.length() > 1024) return false;
+        Matcher match = COUNTER_IDENTITY.matcher(Text.removeTags(message));
+        return match.find() && BossCounterAliases.matches(boss, match.group(1).trim());
+    }
     static boolean eligible(String assignedBoss)
     {
         if (assignedBoss == null || assignedBoss.trim().isEmpty()) return false;

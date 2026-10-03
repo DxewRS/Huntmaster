@@ -47,6 +47,7 @@ public class ImmediateReportDeliveryTest
             set(plugin,"clientThread",new ClientThread(){@Override public void invokeLater(Runnable r){r.run();}});
             set(plugin,"httpClient",new OkHttpClient(){@Override public Call newCall(Request r){PendingCall c=new PendingCall(r);calls.add(c);return c;}});
             set(plugin,"running",true);set(plugin,"reportsEnabled",true);set(plugin,"registrationConfirmed",true);set(plugin,"healthReachable",true);set(plugin,"assignmentSyncRequired",false);set(plugin,"assignmentRsn","Example");
+            ((CollectionPolicy)field("collectionPolicy").get(plugin)).accept(new Gson().fromJson("{\"version\":2,\"expiresAt\":"+(System.currentTimeMillis()+60000)+",\"windows\":{}}",com.google.gson.JsonObject.class),System.currentTimeMillis());
             queue=(EncounterReportQueue)field("reportQueue").get(plugin);dashboard=(AssignmentDashboardState)field("dashboard").get(plugin);
             dashboard.reset("Example",System.currentTimeMillis()-10000);
         }
@@ -72,6 +73,11 @@ public class ImmediateReportDeliveryTest
         String ack=h.ack(h.queue.snapshot()[0].id);h.calls.get(0).respond(ack);
         assertEquals(0,h.queue.snapshot().length);assertEquals("1/10 KC: The Nightmare",h.dashboard.overlay(System.currentTimeMillis(),true));
         h.calls.get(0).respond(ack);assertEquals(0,h.queue.snapshot().length);assertEquals("1/10 KC: The Nightmare",h.dashboard.overlay(System.currentTimeMillis(),true));
+    }
+    @Test public void oldBotCannotDiscardNewProtocolReports()throws Exception
+    {
+        Harness h=new Harness();((CollectionPolicy)field("collectionPolicy").get(h.plugin)).accept(null,0);
+        h.finalizeReport();assertEquals(0,h.calls.size());assertEquals(1,h.queue.snapshot().length);
     }
     @Test public void reportsFinalizedDuringRequestWaitForWorkerInExistingOrder()throws Exception
     {

@@ -16,6 +16,15 @@ import static org.junit.Assert.*;
 
 public class HuntmasterPanelTest
 {
+    @Test public void diagnosticsAreWrappedAndEscaped() throws Exception {
+        SwingUtilities.invokeAndWait(()->{
+            HuntmasterPanel p=new HuntmasterPanel();
+            p.diagnostics("Plugin update required through RuneLite","Evidence received; no new credit (<unknown>)","safe support text");
+            String text=visibleText(p);assertTrue(text.contains("Plugin update required"));assertTrue(text.contains("&lt;unknown&gt;"));
+            p.setSize(225,p.getPreferredSize().height);layout(p);
+            for(JLabel label:labels(p))assertTrue(label.getPreferredSize().width<=225);
+        });
+    }
     static String visibleText(Container root) {
         StringBuilder text=new StringBuilder();
         for(Component c:root.getComponents())if(c.isVisible()) {

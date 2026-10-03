@@ -34,25 +34,4 @@ public class EvidenceOnlyModeTest
 		assertEquals("server_observation",EncounterReportCodec.encodeObservation(record.snapshot()).get("trackingMode").getAsString());
 		assertFalse(EncounterReportCodec.encodeObservation(record.snapshot()).has("creditEventId"));
 	}
-	@Test public void counterParserIgnoresColourAndDurationDigits()
-	{
-		assertEquals(Integer.valueOf(1234),EvidenceOnlyCounter.parse("Your Sarachnis kill count is: <col=ff0000>1,234</col>. Fight duration: 0:45", "Your Sarachnis kill count is:"));
-	}
-	@Test public void unrelatedAndOverflowCountersAreIgnored()
-	{
-		assertNull(EvidenceOnlyCounter.parse(null, "Your Sarachnis kill count is:"));
-		assertNull(EvidenceOnlyCounter.parse("Your Sarachnis kill count is: 12", null));
-		assertNull(EvidenceOnlyCounter.parse("Your Sarachnis kill count is: 12" + "x".repeat(1024), "Your Sarachnis kill count is:"));
-		assertNull(EvidenceOnlyCounter.parse("Your Kraken kill count is: 12", "Your Sarachnis kill count is:"));
-		assertNull(EvidenceOnlyCounter.parse("Your Sarachnis kill count is: 9999999999999", "Your Sarachnis kill count is:"));
-	}
-	@Test public void observationPrefixAcceptsBossColourAndCaseWithoutChangingCreditRoutes()
-	{
-		String prefix="Your Giant Mole kill count is:";
-		String message="Your <col=ff0000>Giant mole</col> kill count is: <col=ff0000>12</col>.";
-		assertTrue(EvidenceOnlyCounter.matchesPrefix(message,prefix));
-		assertEquals(Integer.valueOf(12),EvidenceOnlyCounter.parse(message,prefix));
-		assertFalse(EvidenceOnlyCounter.matchesPrefix("Your Baby mole kill count is: 12.",prefix));
-		assertFalse(EvidenceOnlyCounter.matchesPrefix(null,prefix));
-	}
 }

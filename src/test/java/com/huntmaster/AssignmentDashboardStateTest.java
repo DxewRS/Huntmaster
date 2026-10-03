@@ -55,7 +55,7 @@ public class AssignmentDashboardStateTest
             assertTrue(p.getComponentCount()>5);
             java.util.List<String> buttons=new java.util.ArrayList<>();
             for(java.awt.Component child:p.getComponents()) if(child instanceof javax.swing.JButton)buttons.add(((javax.swing.JButton)child).getText());
-            assertEquals(java.util.Collections.singletonList("Open Huntmaster in Discord"),buttons);
+            assertEquals(java.util.Arrays.asList("Open Huntmaster in Discord","Copy diagnostics"),buttons);
         });
     }
     @Test public void repeatedAcknowledgementDoesNotRestartOverlayTimer()

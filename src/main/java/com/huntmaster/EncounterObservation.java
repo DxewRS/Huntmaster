@@ -9,9 +9,10 @@ import java.util.UUID;
 /** Pure diagnostic record. It never decides or awards Huntmaster credit. */
 final class EncounterObservation
 {
+    String policyRevision="packaged-default";
 	static final int MAX_SIGNALS = 32;
 	static final int MAX_WINDOW_TICKS = 128;
-	enum SignalKind { DEATH, COMPLETION, ACTIVITY_COMPLETION, COUNTER, LOOT }
+	enum SignalKind { DEATH, COMPLETION, ACTIVITY_COMPLETION, COUNTER, LOOT, DIAGNOSTIC }
 	enum CounterSource { KC_MESSAGE, RS_PROFILE, COMPLETION_VARP }
 	enum LootAttribution { MATCHING_ENCOUNTER, UNCERTAIN }
 	enum Outcome { UNRESOLVED, AMBIGUOUS, INTERRUPTED }
@@ -47,6 +48,7 @@ final class EncounterObservation
 
 	static final class Snapshot
 	{
+        final String policyRevision;
 		final boolean evidenceOnly;
 		final UUID reportId;
 		final UUID assignmentId;
@@ -67,6 +69,7 @@ final class EncounterObservation
 
 		private Snapshot(EncounterObservation record)
 		{
+            policyRevision=record.policyRevision;
 			chestState = record.chestState == null ? null : record.chestState.clone();
 			diagnostics = Collections.unmodifiableList(new ArrayList<>(record.diagnostics));
 			evidenceOnly = record.evidenceOnly;
@@ -135,7 +138,7 @@ final class EncounterObservation
 	{
 		this.evidenceOnly = evidenceOnly;
 		this.reportId = Objects.requireNonNull(reportId);
-		this.assignmentId = Objects.requireNonNull(assignmentId);
+		this.assignmentId = assignmentId;
 		this.rsn = text(rsn, 64);
 		this.boss = text(boss, 128);
 		this.detectorType = Objects.requireNonNull(detectorType);
@@ -160,7 +163,7 @@ final class EncounterObservation
 
 	boolean recordPrimary(SignalKind kind, int tick)
 	{
-		if (kind != SignalKind.DEATH && kind != SignalKind.COMPLETION && kind != SignalKind.ACTIVITY_COMPLETION)
+		if (kind != SignalKind.DEATH && kind != SignalKind.COMPLETION && kind != SignalKind.ACTIVITY_COMPLETION && kind != SignalKind.DIAGNOSTIC)
 		{
 			throw new IllegalArgumentException("Expected a primary encounter signal");
 		}
