@@ -14,9 +14,8 @@ final class EncounterObservation
 	enum SignalKind { DEATH, COMPLETION, ACTIVITY_COMPLETION, COUNTER, LOOT }
 	enum CounterSource { KC_MESSAGE, RS_PROFILE, COMPLETION_VARP }
 	enum LootAttribution { MATCHING_ENCOUNTER, UNCERTAIN }
-	enum Outcome { VERIFIED, UNRESOLVED, AMBIGUOUS, INTERRUPTED }
-	enum Method { DEATH_AND_COUNTER, DEATH_AND_LOOT, COUNTER_AND_LOOT, COMPLETION_AND_COUNTER, ACTIVITY_AND_COUNTER }
-	enum Reason { SUFFICIENT_EVIDENCE, WINDOW_EXPIRED, COUNTER_JUMP, LOGOUT, ASSIGNMENT_CHANGED, SHUTDOWN, SIGNAL_LIMIT, CLOCK_RESET }
+	enum Outcome { UNRESOLVED, AMBIGUOUS, INTERRUPTED }
+	enum Reason { WINDOW_EXPIRED, COUNTER_JUMP, LOGOUT, ASSIGNMENT_CHANGED, SHUTDOWN, SIGNAL_LIMIT, CLOCK_RESET }
 
 	static final class Signal
 	{
@@ -59,15 +58,17 @@ final class EncounterObservation
 		final int windowTicks;
 		final int durationTicks;
 		final Outcome outcome;
-		final Method method;
 		final Reason reason;
 		final Reason interruptionReason;
-		final UUID creditEventId;
 		final boolean captureComplete;
 		final List<Signal> signals;
+		final int[] chestState;
+		final List<Diagnostic> diagnostics;
 
 		private Snapshot(EncounterObservation record)
 		{
+			chestState = record.chestState == null ? null : record.chestState.clone();
+			diagnostics = Collections.unmodifiableList(new ArrayList<>(record.diagnostics));
 			evidenceOnly = record.evidenceOnly;
 			reportId = record.reportId;
 			assignmentId = record.assignmentId;
@@ -79,10 +80,8 @@ final class EncounterObservation
 			windowTicks = record.windowTicks;
 			durationTicks = record.durationTicks;
 			outcome = record.outcome;
-			method = record.method;
 			reason = record.reason;
 			interruptionReason = record.interruptionReason;
-			creditEventId = record.creditEventId;
 			captureComplete = record.interruptionReason == null;
 			signals = Collections.unmodifiableList(new ArrayList<>(record.signals));
 		}
@@ -100,13 +99,30 @@ final class EncounterObservation
 	private final int windowTicks;
 	private final List<Signal> signals = new ArrayList<>();
 	private Outcome outcome;
-	private Method method;
 	private Reason reason;
 	private Reason interruptionReason;
-	private UUID creditEventId;
 	private int durationTicks;
 	private int latestTickOffset;
 	private boolean closed;
+	private int[] chestState;
+	static final class Diagnostic
+	{
+		final String source;
+		final int tickOffset;
+		final Integer total;
+		Diagnostic(String source, int tickOffset, Integer total) { this.source = source; this.tickOffset = tickOffset; this.total = total; }
+	}
+	private final List<Diagnostic> diagnostics = new ArrayList<>();
+	void diagnostic(String source, Integer total, int tick)
+	{
+		if (total != null && total < 0) total = null;
+		int offset = offset(tick);
+		if (closed || offset < 0 || diagnostics.size() >= 8) return;
+		for (Diagnostic d : diagnostics) if (d.source.equals(source) && d.tickOffset == offset && Objects.equals(d.total, total)) return;
+		diagnostics.add(new Diagnostic(source, offset, total));
+		latestTickOffset = Math.max(latestTickOffset, offset);
+	}
+	void recordChestState(int mask, int age, int tick) { if (!closed && chestState == null) chestState = new int[] {mask, age, offset(tick)}; }
 
 	EncounterObservation(UUID reportId, UUID assignmentId, String rsn, String boss,
 			BossDetectorType detectorType, String detectorVersion, long observedAt, int startTick, int windowTicks)
@@ -208,16 +224,6 @@ final class EncounterObservation
 		signals.add(signal);
 		latestTickOffset = Math.max(latestTickOffset, signal.tickOffset);
 		return true;
-	}
-
-	void markVerified(UUID creditEventId, Method method)
-	{
-		if (evidenceOnly) throw new IllegalStateException("Evidence-only capture cannot claim credit");
-		Objects.requireNonNull(creditEventId);
-		Objects.requireNonNull(method);
-		setVerdict(Outcome.VERIFIED, Reason.SUFFICIENT_EVIDENCE);
-		this.creditEventId = creditEventId;
-		this.method = method;
 	}
 
 	void markUncertain(Outcome outcome, Reason reason)

@@ -8,6 +8,9 @@ import net.runelite.client.config.ConfigSection;
 @ConfigGroup("huntmaster")
 public interface BosscapeSettings extends Config
 {
+    @ConfigItem(keyName="showAssignmentProgressOverlay",name="Show Assignment Progress Overlay",
+        description="Local rendering only; sends no additional data. Hide after 20 minutes without a server-credited kill.",position=10)
+    default boolean showAssignmentProgressOverlay() { return true; }
     @ConfigItem(keyName = "bosscapeInformation", position = 0,
         name = "<html><table width='200' cellpadding='0' cellspacing='0'>"
             + "<tr><td><b>HUNTMASTER</b></td></tr>"

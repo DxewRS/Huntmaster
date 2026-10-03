@@ -37,9 +37,10 @@ public class AssignedTotalTrackerTest
             capture.primary(detector, "Fixture", assignment, 100, 1000, EncounterObservation.SignalKind.COMPLETION);
             capture.counter(detector, "Fixture", assignment, 100, 1000, EncounterObservation.CounterSource.COMPLETION_VARP, 40, 41);
             capture.advance(110);
-            com.google.gson.JsonObject wire = EncounterReportCodec.encode(reports.get(0));
+            com.google.gson.JsonObject wire = EncounterReportCodec.encodeObservation(reports.get(0));
             assertEquals("COMPLETION", wire.get("detectorType").getAsString());
-            assertEquals(boss.equals("Doom of Mokhaiotl") ? "evidence_only" : "beta_candidate", wire.get("trackingMode").getAsString());
+            assertEquals("server_observation", wire.get("trackingMode").getAsString());
+            assertEquals(boss.equals("Doom of Mokhaiotl") ? "dedicated-total-observation-v1" : "dedicated-total-beta-v1", wire.get("detectorVersion").getAsString());
             assertFalse(wire.has("creditEventId"));
         }
     }

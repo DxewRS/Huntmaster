@@ -24,8 +24,8 @@ public class GenericKcRouterTest
             "Example",d.getName(),d.getDetectorType(),d.getDetectorVersion(),1000,100,10,true);
         r.recordCounter(101,EncounterObservation.CounterSource.KC_MESSAGE,null,107);
         r.closeIfExpired(110);
-        assertEquals("beta_candidate",EncounterReportCodec.encode(r.snapshot()).get("trackingMode").getAsString());
-        assertNull(r.snapshot().creditEventId);
+        assertEquals("server_observation",EncounterReportCodec.encodeObservation(r.snapshot()).get("trackingMode").getAsString());
+        assertFalse(EncounterReportCodec.encodeObservation(r.snapshot()).has("creditEventId"));
     }
     @Test public void parsesAssignedPersonalCountersWithoutReadingDurationDigits()
     {

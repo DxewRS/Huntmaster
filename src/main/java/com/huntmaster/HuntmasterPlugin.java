@@ -58,6 +58,52 @@ import net.runelite.client.plugins.PluginDescriptor;
 )
 public class HuntmasterPlugin extends Plugin
 {
+	@Inject private net.runelite.client.ui.ClientToolbar clientToolbar;
+	@Inject private net.runelite.client.ui.overlay.OverlayManager overlayManager;
+	@Inject private BosscapeSettings settings;
+	private final AssignmentDashboardState dashboard = new AssignmentDashboardState();
+	private volatile HuntmasterPanel dashboardPanel;
+	private net.runelite.client.ui.NavigationButton dashboardNavigation;
+	private AssignmentProgressOverlay assignmentOverlay;
+	private AssignmentDashboardState.View publishedDashboard;
+	private String dashboardAccount;
+	private void startDashboard(long session)
+	{
+		javax.swing.SwingUtilities.invokeLater(() -> {
+			if (!running || lifecycle != session) return;
+			dashboardPanel = new HuntmasterPanel();
+			dashboardNavigation = net.runelite.client.ui.NavigationButton.builder().tooltip("Huntmaster").priority(7)
+				.icon(net.runelite.client.util.ImageUtil.resizeImage(net.runelite.client.util.ImageUtil.loadImageResource(HuntmasterPlugin.class,"panel_icon.png"),24,24))
+				.panel(dashboardPanel).build();
+			clientToolbar.addNavigation(dashboardNavigation);
+			assignmentOverlay = new AssignmentProgressOverlay(this,client,dashboard,settings);
+			overlayManager.add(assignmentOverlay);
+			dashboardPanel.update(dashboard.view());
+		});
+	}
+	private void stopDashboard()
+	{
+		dashboardAccount=null; dashboard.reset(null,System.currentTimeMillis()); publishedDashboard=null;
+		javax.swing.SwingUtilities.invokeLater(() -> {
+			if(dashboardNavigation!=null)clientToolbar.removeNavigation(dashboardNavigation);
+			if(assignmentOverlay!=null)overlayManager.remove(assignmentOverlay);
+			dashboardNavigation=null; assignmentOverlay=null; dashboardPanel=null;
+		});
+	}
+	private void dashboardAccount(String rsn)
+	{
+		if(!sameRsn(rsn,dashboardAccount)) { dashboardAccount=rsn;dashboard.reset(rsn,System.currentTimeMillis()); }
+	}
+	private void publishDashboard()
+	{
+		if(client.getGameState()!=GameState.LOGGED_IN)dashboard.connection("Log in to RuneScape");
+		else if(membershipDenied)dashboard.connection("Register your RSN in Bosscape");
+		else if(!healthReachable)dashboard.connection(outage.getStartedAt()==0?"Connecting...":"Huntmaster unavailable");
+		AssignmentDashboardState.View view=dashboard.view();
+		if(view==publishedDashboard)return;
+		publishedDashboard=view;long session=lifecycle;
+		javax.swing.SwingUtilities.invokeLater(() -> { if(running && lifecycle==session && dashboardPanel!=null)dashboardPanel.update(view); });
+	}
 	@Provides BosscapeSettings provideBosscapeSettings(ConfigManager manager)
 	{ return manager.getConfig(BosscapeSettings.class); }
 	private final ServerVerification serverVerification = new ServerVerification();
@@ -224,6 +270,7 @@ public class HuntmasterPlugin extends Plugin
 	private BossDetector genericObservationDetector;
 	private boolean registrationConfirmed;
 	private String genericObservationAssignment;
+	private final ChestRunState chestRunState = new ChestRunState();
 	private int chestRewardInventory = -1;
 	private int chestRewardTick = -1;
 	private String chestRewardAssignment;
@@ -272,8 +319,6 @@ public class HuntmasterPlugin extends Plugin
 	// SESSION STATE
 	// ==================================================
 
-	private boolean needsRsnDetection =
-			true;
 
 	// ==================================================
 	// PENDING VERIFIED KC EVENT
@@ -337,7 +382,6 @@ public class HuntmasterPlugin extends Plugin
 		accountSnapshotInFlight = false;
 		nextAccountSnapshotAt = System.currentTimeMillis() + 10_000L;
 		accountSnapshotLoginTick = client.getTickCount();
-		configManager.unsetConfiguration(HUNTMASTER_CONFIG_GROUP, "pluginCredential");
 		linkNoticeShown = false;
 		connectionInitialized = false;
 		if (HUNTMASTER_API_BASE_URL == null)
@@ -352,6 +396,8 @@ public class HuntmasterPlugin extends Plugin
 		genericObservationAssignment = null;
 		running = true;
 		long session = ++lifecycle;
+		dashboardAccount=null;dashboard.reset(null,System.currentTimeMillis());publishedDashboard=null;
+		startDashboard(session);
 		httpClient = okHttpClient.newBuilder()
 				.followRedirects(false)
 				.followSslRedirects(false)
@@ -448,17 +494,11 @@ public class HuntmasterPlugin extends Plugin
 					testHuntmasterApiConnection();
 					diagnostic(this::updateAccountSnapshot);
 					diagnostic(this::updateRecruitmentNotifications);
+					publishDashboard();
 				}
 			}), 0, HUNTMASTER_RETRY_DELAY_MS, TimeUnit.MILLISECONDS);
 		});
 
-		if (
-				client.getGameState() ==
-						GameState.LOGGED_IN
-		)
-		{
-			logCurrentRsn();
-		}
 	}
 
 	// ==================================================
@@ -468,14 +508,16 @@ public class HuntmasterPlugin extends Plugin
 	@Override
 	protected void shutDown()
 	{
+		// Finalize and persist captures, but never start delivery during shutdown.
+		running = false;
 		recruitmentNotifications.reset();
 		if (reportsEnabled) diagnostic(() -> interruptEncounterCaptures(client.getTickCount(), EncounterObservation.Reason.SHUTDOWN));
 		saveEncounterReports();
 		clearEncounterCaptures();
-		running = false;
 		reportsEnabled = false;
 		if (baselineStore != null) { baselineStore.close(); baselineStore = null; }
 		++lifecycle;
+		stopDashboard();
 		if (connectionTask != null)
 		{
 			connectionTask.cancel(false);
@@ -516,6 +558,7 @@ public class HuntmasterPlugin extends Plugin
 	@Subscribe
 	public void onGameTick(GameTick event)
 	{
+		publishDashboard();
 		showLinkNotice();
 		if (reportsEnabled) diagnostic(() -> { encounterCapture.advance(client.getTickCount()); dagannothCapture.advance(client.getTickCount()); });
 		updateVerificationRecovery();
@@ -537,22 +580,8 @@ public class HuntmasterPlugin extends Plugin
 			return;
 		}
 		diagnostic(this::observeAssignedSpecialTotal);
-
-		if (needsRsnDetection)
-		{
-			Player localPlayer =
-					client.getLocalPlayer();
-
-			if (localPlayer != null)
-			{
-				log.debug(
-						"Huntmaster detected RSN: {}",
-						localPlayer.getName()
-				);
-
-				needsRsnDetection = false;
-			}
-		}
+		int chestMask = ChestRunState.read(assignedBoss, client::getVarbitValue);
+		if (chestMask >= 0) chestRunState.sample(assignmentId + ":" + assignedBoss, chestMask, client.getTickCount());
 
 		BossDetector detector = registeredDetector(assignedBoss);
 		if (detector != null && !detector.getDefinition().isEvidenceOnly())
@@ -673,27 +702,6 @@ public void onRuneScapeProfileChanged(
 		}
 
 		if (detector.getDetectorType() == BossDetectorType.STANDARD_NPC) observePrimary(detector, EncounterObservation.SignalKind.DEATH);
-		if (detector.getDefinition().isEvidenceOnly()) return;
-		switch (detector.getDetectorType())
-		{
-			case STANDARD_NPC:
-				break;
-
-			case COMPLETION:
-			case ACTIVITY:
-			case SPECIAL:
-				// ActorDeath is not currently part of these
-				// detector strategies.
-				break;
-
-			default:
-				log.warn(
-						"Huntmaster encountered unsupported detector type for {}: {}",
-						detector.getName(),
-						detector.getDetectorType()
-				);
-				break;
-		}
 	}
 
 	@Subscribe
@@ -725,27 +733,6 @@ public void onRuneScapeProfileChanged(
 		}
 
 		if (detector.getDetectorType() == BossDetectorType.STANDARD_NPC) observeLoot(detector);
-		if (detector.getDefinition().isEvidenceOnly()) return;
-		switch (detector.getDetectorType())
-		{
-			case STANDARD_NPC:
-				break;
-
-			case COMPLETION:
-			case ACTIVITY:
-			case SPECIAL:
-				// NPC loot is not currently part of these
-				// detector strategies.
-				break;
-
-			default:
-				log.warn(
-						"Huntmaster encountered unsupported detector type for {}: {}",
-						detector.getName(),
-						detector.getDetectorType()
-				);
-				break;
-		}
 	}
 
 	@Subscribe
@@ -756,10 +743,12 @@ public void onRuneScapeProfileChanged(
 		if (detector == null) return;
 		int inventory = ChestCompletionAdapter.rewardInventory(detector.getName(), event.getGroupId());
 		if (inventory < 0) return;
+		int[] chestState = chestRunState.consume(assignmentId + ":" + detector.getName(), ChestRunState.read(detector.getName(), client::getVarbitValue), client.getTickCount());
 		chestRewardInventory = inventory;
 		chestRewardTick = client.getTickCount();
 		chestRewardAssignment = assignmentId;
 		observePrimary(detector, EncounterObservation.SignalKind.COMPLETION);
+		if (chestState != null && canObserve(detector)) diagnostic(() -> encounterCapture.chestState(chestState[0], chestState[1], client.getTickCount()));
 		observeChestLoot(detector, client.getItemContainer(inventory));
 	}
 
@@ -794,14 +783,15 @@ public void onRuneScapeProfileChanged(
 		{
 			return;
 		}
-		if (event.getType()
-				!= ChatMessageType.GAMEMESSAGE)
+		if (!CounterMessageEvidence.accepts(event.getType()))
 		{
 			return;
 		}
 
 		String message =
 				event.getMessage();
+		if (CounterMessageEvidence.related(message, assignedBoss) && GenericKcRouter.parse(message, assignedBoss) == null)
+			encounterCapture.diagnostic("UNPARSED_" + event.getType().name(), null, client.getTickCount());
 
 		if (canCollectDagannoth() && dagannothCapture.counter(message, client.getLocalPlayer().getName(),
 			assignmentId, client.getTickCount(), System.currentTimeMillis())) return;
@@ -812,6 +802,7 @@ public void onRuneScapeProfileChanged(
 		{
 			Integer previous = generic.getLastKc();
 			observeCounter(generic, EncounterObservation.CounterSource.KC_MESSAGE, previous, genericTotal);
+			encounterCapture.diagnostic(event.getType().name(), genericTotal, client.getTickCount());
 			if (previous != null && (long) genericTotal - previous > 1)
 				diagnostic(() -> encounterCapture.uncertain(EncounterObservation.Outcome.AMBIGUOUS));
 			generic.setLastKc(genericTotal);
@@ -832,6 +823,7 @@ public void onRuneScapeProfileChanged(
 		if (detector.getDefinition().isEvidenceOnly())
 		{
 			diagnostic(() -> observeEvidenceOnlyMessage(detector, message));
+			encounterCapture.diagnostic(event.getType().name(), GenericKcRouter.parse(message, detector.getName()), client.getTickCount());
 			return;
 		}
 		switch (detector.getDetectorType())
@@ -845,10 +837,7 @@ public void onRuneScapeProfileChanged(
 
 			case COMPLETION:
 			case ACTIVITY:
-				handleTotalKcMessage(
-						detector,
-						message
-				);
+				handleTotalKcMessage(detector);
 				break;
 
 			case SPECIAL:
@@ -874,7 +863,7 @@ public void onRuneScapeProfileChanged(
 		detector.setLastKc(total);
 	}
 
-	private void handleTotalKcMessage(BossDetector detector, String message)
+	private void handleTotalKcMessage(BossDetector detector)
 	{
 		observePrimary(detector, detector.getDetectorType()==BossDetectorType.ACTIVITY
 			? EncounterObservation.SignalKind.ACTIVITY_COMPLETION : EncounterObservation.SignalKind.COMPLETION);
@@ -1038,7 +1027,7 @@ public void onRuneScapeProfileChanged(
 				}
 				pendingKcEvents.remove(pendingEvent.eventId);
 				savePendingKcEvents();
-				log.debug("Huntmaster KC event {} accepted and removed from pending queue: {}", pendingEvent.eventId, responseBody);
+				log.debug("Huntmaster KC event {} accepted", pendingEvent.eventId);
 				refreshAssignment();
 				recoverConnectionIfReady();
 			}
@@ -1065,14 +1054,14 @@ public void onRuneScapeProfileChanged(
 				// Preserve the existing API rejection contract (including HTTP 409).
 				pendingKcEvents.remove(pendingEvent.eventId);
 				savePendingKcEvents();
-				log.debug("Huntmaster KC event {} rejected with HTTP {}: {}", pendingEvent.eventId, status, responseBody);
+				log.debug("Huntmaster KC event {} rejected with HTTP {}", pendingEvent.eventId, status);
 				refreshAssignment();
 				recoverConnectionIfReady();
 			}
 			else
 			{
 				markConnectionFailure();
-				schedulePendingKcRetry(pendingEvent, "HTTP " + status + ": " + responseBody);
+				schedulePendingKcRetry(pendingEvent, "HTTP " + status);
 			}
 		});
 	}
@@ -1467,35 +1456,14 @@ public void onRuneScapeProfileChanged(
 // UNRESOLVED VERIFICATION
 // ==================================================
 
-	private void logCurrentRsn()
-	{
-		Player localPlayer = client.getLocalPlayer();
-
-		if (localPlayer == null)
-		{
-			log.warn(
-					"Huntmaster could not detect the current RSN"
-			);
-
-			return;
-		}
-
-		String rsn =
-				localPlayer.getName();
-
-		log.debug(
-				"Huntmaster detected RSN: {}",
-				rsn
-		);
-	}
-
 	// ==================================================
 	// HUNTMASTER API CONNECTION TEST
 	// ==================================================
 
 	private void testHuntmasterApiConnection()
 	{
-		if (!encounterCommunicationEnabled()) return;
+		if (!encounterCommunicationEnabled() || client.getGameState() != GameState.LOGGED_IN
+			|| client.getLocalPlayer() == null) return;
 		if (healthInFlight || System.currentTimeMillis() < nextHealthCheckAt)
 		{
 			if (healthReachable && !healthInFlight) refreshAssignment();
@@ -1660,6 +1628,7 @@ public void onRuneScapeProfileChanged(
 	@Subscribe
 	public void onGameStateChanged(GameStateChanged event)
 	{
+		if (event.getGameState() == GameState.HOPPING) { dashboard.clearCompleted(); publishDashboard(); }
 		if (event.getGameState() != GameState.LOGGED_IN) { recruitmentNotifications.reset(); serverVerification.release(); }
 		if (event.getGameState() == GameState.LOGGED_IN) accountSnapshotLoginTick = client.getTickCount();
 		nextAccountSnapshotAt = System.currentTimeMillis() + 10_000L;
@@ -1691,8 +1660,8 @@ public void onRuneScapeProfileChanged(
 	private void recoverConnectionIfReady()
 	{
 		// A healthy endpoint alone cannot reconcile undelivered events.
-		if (!healthReachable || assignmentSyncRequired || pendingKcEvents.values().stream().anyMatch(entry -> sameRsn(assignmentRsn, entry.rsn))
-			|| hasPendingBetaCredit() || outage.getStartedAt() == 0)
+		if (outage.getStartedAt() == 0 || !healthReachable || assignmentSyncRequired || pendingKcEvents.values().stream().anyMatch(entry -> sameRsn(assignmentRsn, entry.rsn))
+			|| hasPendingBetaCredit())
 		{
 			return;
 		}
@@ -1759,10 +1728,12 @@ public void onRuneScapeProfileChanged(
 			return;
 		}
 		String rsn = player.getName();
+		dashboardAccount(rsn);
 		assignmentInFlight = true;
 		HttpUrl url = HttpUrl.get(HUNTMASTER_API_BASE_URL + "/api/runelite/assignment")
 				.newBuilder().addQueryParameter("rsn", rsn).build();
-		enqueueRequest(new Request.Builder().url(url).header("Cache-Control", "no-cache").build(), (status, body) ->
+		Request.Builder assignmentRequest=new Request.Builder().url(url).header("Cache-Control", "no-store");
+		enqueueRequest(assignmentRequest.build(), (status, body) ->
 		{
 			assignmentInFlight = false;
 			Player currentPlayer = client.getLocalPlayer();
@@ -1779,6 +1750,8 @@ public void onRuneScapeProfileChanged(
 					throw new IllegalArgumentException("Invalid assignment state");
 				}
 				String mode = state.get("status").getAsString();
+				if (!"unregistered".equals(mode) && !"group_unsupported".equals(mode)
+					&& !dashboard.accept(state,System.currentTimeMillis(),null,0)) return;
 				String newId = null;
 				String newBoss = null;
 				if ("solo".equals(mode) || "group".equals(mode))
@@ -1823,6 +1796,7 @@ public void onRuneScapeProfileChanged(
 					log.debug("Huntmaster assignment synchronized: mode {}, boss {}, id {}", mode, newBoss, newId);
 				}
 				recoverConnectionIfReady();
+				publishDashboard();
 			}
 			catch (RuntimeException ex)
 			{
@@ -1932,6 +1906,7 @@ public void onRuneScapeProfileChanged(
 
 	private void resetLinkRequests()
 	{
+		dashboardAccount=null;dashboard.reset(null,System.currentTimeMillis());publishedDashboard=null;
 		serverVerification.release();
 		nextHealthCheckAt = 0;
 		++requestGeneration;
@@ -1989,12 +1964,14 @@ public void onRuneScapeProfileChanged(
 	}
 	private void interruptEncounterCaptures(int tick, EncounterObservation.Reason reason)
 	{
+		chestRunState.clear();
 		encounterCapture.interrupt(tick, reason);
 		dagannothCapture.interrupt(tick, reason);
 		assignedTotalTracker.clear();
 	}
 	private void clearEncounterCaptures()
 	{
+		chestRunState.clear();
 		encounterCapture.clear();
 		dagannothCapture.clear();
 		assignedTotalTracker.clear();
@@ -2011,6 +1988,16 @@ public void onRuneScapeProfileChanged(
 	{
 		if (canObserve(detector)) diagnostic(() -> encounterCapture.primary(detector, client.getLocalPlayer().getName(), assignmentId,
 			client.getTickCount(), System.currentTimeMillis(), kind));
+		observeProfileSnapshot(detector);
+	}
+	private void observeProfileSnapshot(BossDetector detector)
+	{
+		if (!canObserve(detector)) return;
+		diagnostic(() -> {
+			String key = "The Nightmare".equals(detector.getName()) ? "nightmare" : detector.getProfileKey();
+			Integer total = configManager.getRSProfileConfiguration("killcount", key, int.class);
+			encounterCapture.diagnostic("PROFILE_SNAPSHOT", total, client.getTickCount());
+		});
 	}
 	private void observeCounter(BossDetector detector, EncounterObservation.CounterSource source, Integer previous, int total)
 	{
@@ -2021,6 +2008,7 @@ public void onRuneScapeProfileChanged(
 	{
 		if (canObserve(detector)) diagnostic(() -> encounterCapture.loot(detector, client.getLocalPlayer().getName(), assignmentId,
 			client.getTickCount(), System.currentTimeMillis()));
+		observeProfileSnapshot(detector);
 	}
 
 	private void queueEncounterReport(EncounterObservation.Snapshot snapshot)
@@ -2033,7 +2021,12 @@ public void onRuneScapeProfileChanged(
 			boolean added = reportQueue.add(snapshot.reportId.toString(), payload, snapshot.observedAt,
 				System.currentTimeMillis(), isBetaCredit(report));
 			log.debug("Huntmaster encounter report {} finalized: {} (queued={})", snapshot.reportId, snapshot.outcome, added);
-			if (added) saveEncounterReports();
+			if (added)
+			{
+				saveEncounterReports();
+				// Use the same serialized queue, eligibility gates and retry path as the timer.
+				updateEncounterReports();
+			}
 		}
 		catch (RuntimeException ex) { log.debug("Huntmaster diagnostic capture could not be queued", ex); }
 	}
@@ -2078,9 +2071,10 @@ public void onRuneScapeProfileChanged(
 	}
 	private void updateEncounterReports()
 	{
-		if (!encounterCommunicationEnabled()) return;
+		if (!running || !encounterCommunicationEnabled()) return;
 		Player reportPlayer = client.getLocalPlayer();
-		if (!reportsEnabled || !registrationConfirmed || assignmentSyncRequired || !healthReachable
+		if (!reportsEnabled || client.getGameState() != GameState.LOGGED_IN
+				|| !registrationConfirmed || assignmentSyncRequired || !healthReachable
 				|| reportPlayer == null || !sameRsn(reportPlayer.getName(), assignmentRsn)) return;
 		EncounterReportQueue.Entry entry = reportQueue.next(System.currentTimeMillis(), candidate ->
 		{
@@ -2119,10 +2113,18 @@ public void onRuneScapeProfileChanged(
 						&& ("stored".equals(resultStatus) || "duplicate".equals(resultStatus));
 					JsonObject credit = result.has("serverCredit") ? result.getAsJsonObject("serverCredit") : result.has("betaCredit") ? result.getAsJsonObject("betaCredit") : null;
 					completed = accepted && credit != null && credit.has("status") && "task_completed".equals(credit.get("status").getAsString());
+					if(accepted && result.has("assignmentState"))
+					{
+						JsonObject report=gson.fromJson(entry.payload,JsonObject.class);
+						boolean gained=credit!=null && credit.has("status") && "progress_updated".equals(credit.get("status").getAsString());
+						dashboard.accept(result.getAsJsonObject("assignmentState"),System.currentTimeMillis(),gained?report.get("assignmentId").getAsString():null,
+							java.time.Instant.parse(report.get("observedAt").getAsString()).toEpochMilli());
+						publishDashboard();
+					}
 				}
 			}
 			catch (RuntimeException ex) { log.debug("Huntmaster invalid diagnostic acknowledgement", ex); }
-			// Old bots return 404: retain until expiry instead of impacting KC.
+			// Preserve old-bot 404 compatibility; credit candidates remain durable.
 			if (accepted || status == 400 || status == 409 || status == 413) reportQueue.acknowledge(entry.id);
 			else
 			{
@@ -2133,8 +2135,10 @@ public void onRuneScapeProfileChanged(
 			log.debug("Huntmaster encounter report {} response {} accepted={}", entry.id, status, accepted);
 			saveEncounterReports();
 			recoverConnectionIfReady();
+			// The five-second worker drains waiting reports without an acknowledgement-driven burst.
 		});
 	}
+
 
 	private void diagnostic(Runnable action)
 	{
@@ -2152,6 +2156,13 @@ public void onRuneScapeProfileChanged(
 		clientThread.invokeLater(() ->
 		{
 			if (!running || lifecycle != session || !canTrackNewKills() || !encounterCapture.hasActiveCapture()) return;
+			BossDetector generic = genericObservationDetector();
+			if (generic != null && canObserve(generic))
+			{
+				String key = "The Nightmare".equals(generic.getName()) ? "nightmare" : generic.getProfileKey();
+				if (key.equals(event.getKey())) diagnostic(() -> encounterCapture.diagnostic("PROFILE_CHANGED",
+					configManager.getRSProfileConfiguration("killcount", key, int.class), client.getTickCount()));
+			}
 			for (BossDetector detector : bossDetectors)
 			{
 				if (detector.getDetectorType() != BossDetectorType.STANDARD_NPC

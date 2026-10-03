@@ -14,21 +14,18 @@ public class EncounterObservationTest
 	}
 
 	@Test
-	public void earlyVerificationRetainsLaterLootWithoutExtendingWindow()
+	public void counterRetainsLaterLootWithoutExtendingWindow()
 	{
 		EncounterObservation record = observation();
 		record.recordPrimary(EncounterObservation.SignalKind.DEATH, START);
 		record.recordCounter(START + 3, EncounterObservation.CounterSource.KC_MESSAGE, 161, 162);
-		UUID eventId = UUID.randomUUID();
-		record.markVerified(eventId, EncounterObservation.Method.DEATH_AND_COUNTER);
 		assertTrue(record.recordLoot(START + 4, EncounterObservation.LootAttribution.MATCHING_ENCOUNTER));
 		assertFalse(record.closeIfExpired(START + 11));
 		assertTrue(record.closeIfExpired(START + 12));
 		EncounterObservation.Snapshot report = record.snapshot();
 		assertEquals(3, report.signals.size());
 		assertEquals(4, report.signals.get(2).tickOffset);
-		assertEquals(eventId, report.creditEventId);
-		assertEquals(EncounterObservation.Outcome.VERIFIED, report.outcome);
+		assertEquals(EncounterObservation.Outcome.UNRESOLVED, report.outcome);
 		assertTrue(report.captureComplete);
 		assertEquals(12, report.durationTicks);
 	}
@@ -40,7 +37,6 @@ public class EncounterObservationTest
 		record.recordCounter(START, EncounterObservation.CounterSource.RS_PROFILE, 8, 9);
 		record.recordCounter(START + 1, EncounterObservation.CounterSource.KC_MESSAGE, 8, 9);
 		record.recordPrimary(EncounterObservation.SignalKind.DEATH, START + 2);
-		record.markVerified(UUID.randomUUID(), EncounterObservation.Method.DEATH_AND_COUNTER);
 		record.closeIfExpired(START + 12);
 		assertEquals(EncounterObservation.SignalKind.COUNTER, record.snapshot().signals.get(0).kind);
 		assertEquals(EncounterObservation.CounterSource.RS_PROFILE, record.snapshot().signals.get(0).source);
@@ -56,7 +52,7 @@ public class EncounterObservationTest
 		assertNull(record.snapshot().signals.get(0).previous);
 		assertEquals(Integer.valueOf(200), record.snapshot().signals.get(0).current);
 		assertEquals(EncounterObservation.Outcome.UNRESOLVED, record.snapshot().outcome);
-		assertNull(record.snapshot().creditEventId);
+		assertFalse(EncounterReportCodec.encodeObservation(record.snapshot()).has("creditEventId"));
 		assertEquals(1, record.snapshot().signals.size());
 	}
 
@@ -70,7 +66,7 @@ public class EncounterObservationTest
 		assertEquals(Integer.valueOf(20), record.snapshot().signals.get(0).previous);
 		assertEquals(Integer.valueOf(23), record.snapshot().signals.get(0).current);
 		assertEquals(EncounterObservation.Outcome.AMBIGUOUS, record.snapshot().outcome);
-		assertNull(record.snapshot().creditEventId);
+		assertFalse(EncounterReportCodec.encodeObservation(record.snapshot()).has("creditEventId"));
 	}
 
 	@Test
@@ -80,7 +76,6 @@ public class EncounterObservationTest
 		EncounterObservation second = observation();
 		first.recordPrimary(EncounterObservation.SignalKind.DEATH, START);
 		first.recordCounter(START + 1, EncounterObservation.CounterSource.KC_MESSAGE, 1, 2);
-		first.markVerified(UUID.randomUUID(), EncounterObservation.Method.DEATH_AND_COUNTER);
 		assertFalse(first.recordPrimary(EncounterObservation.SignalKind.DEATH, START + 4));
 		assertFalse(first.recordCounter(START + 5, EncounterObservation.CounterSource.KC_MESSAGE, 2, 3));
 		second.recordPrimary(EncounterObservation.SignalKind.DEATH, START + 4);
@@ -104,21 +99,18 @@ public class EncounterObservationTest
 		assertEquals(EncounterObservation.Outcome.INTERRUPTED, report.outcome);
 		assertFalse(report.captureComplete);
 		assertEquals(3, report.durationTicks);
-		assertNull(report.creditEventId);
+		assertFalse(EncounterReportCodec.encodeObservation(report).has("creditEventId"));
 		assertFalse(record.recordLoot(START + 4, EncounterObservation.LootAttribution.MATCHING_ENCOUNTER));
 		assertEquals(report.assignmentId, record.snapshot().assignmentId);
 	}
 
 	@Test
-	public void logoutAfterVerificationDoesNotEraseCreditCorrelation()
+	public void logoutPreservesEvidenceAndEndsCapture()
 	{
 		EncounterObservation record = observation();
-		UUID eventId = UUID.randomUUID();
 		record.recordPrimary(EncounterObservation.SignalKind.DEATH, START);
-		record.markVerified(eventId, EncounterObservation.Method.DEATH_AND_LOOT);
 		record.interrupt(START + 4, EncounterObservation.Reason.LOGOUT);
-		assertEquals(EncounterObservation.Outcome.VERIFIED, record.snapshot().outcome);
-		assertEquals(eventId, record.snapshot().creditEventId);
+		assertEquals(EncounterObservation.Outcome.INTERRUPTED, record.snapshot().outcome);
 		assertFalse(record.snapshot().captureComplete);
 		assertEquals(EncounterObservation.Reason.LOGOUT, record.snapshot().interruptionReason);
 	}
@@ -156,7 +148,7 @@ public class EncounterObservationTest
 	{
 		EncounterObservation record = observation();
 		record.markUncertain(EncounterObservation.Outcome.AMBIGUOUS, EncounterObservation.Reason.COUNTER_JUMP);
-		record.markVerified(UUID.randomUUID(), EncounterObservation.Method.DEATH_AND_COUNTER);
+		record.markUncertain(EncounterObservation.Outcome.UNRESOLVED, EncounterObservation.Reason.WINDOW_EXPIRED);
 	}
 
 	@Test(expected = UnsupportedOperationException.class)

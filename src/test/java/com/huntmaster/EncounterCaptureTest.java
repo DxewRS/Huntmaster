@@ -8,6 +8,16 @@ import static org.junit.Assert.*;
 
 public class EncounterCaptureTest
 {
+ @Test public void chestStateBelongsOnlyToItsOwnCompletion() {
+  capture.primary(detector,"Example",assignment,100,1000,EncounterObservation.SignalKind.COMPLETION);
+  capture.chestState(63,1,100);
+  capture.counter(detector,"Example",assignment,101,1600,EncounterObservation.CounterSource.KC_MESSAGE,8,9);
+  capture.counter(detector,"Example",assignment,103,2800,EncounterObservation.CounterSource.KC_MESSAGE,9,10);
+  capture.advance(140);
+  assertEquals(2,reports.size());
+  assertTrue(EncounterReportCodec.encodeObservation(reports.get(0)).has("chestState"));
+  assertFalse(EncounterReportCodec.encodeObservation(reports.get(1)).has("chestState"));
+ }
 	@Test public void lootAttachedToOneCounterCannotSupportTheNextCounter()
 	{
 		capture.primary(detector, "Example", assignment, 100, 1000, EncounterObservation.SignalKind.DEATH);
@@ -68,7 +78,7 @@ public class EncounterCaptureTest
 			"Example", "Scurrius", BossDetectorType.STANDARD_NPC, "observation-v1", 1000, 100, 10, true);
 		record.recordCounter(101, EncounterObservation.CounterSource.KC_MESSAGE, null, 106);
 		record.closeIfExpired(110);
-		String wire = EncounterReportCodec.encode(record.snapshot()).toString();
+		String wire = EncounterReportCodec.encodeObservation(record.snapshot()).toString();
 		com.google.gson.JsonObject counter = new com.google.gson.JsonParser().parse(wire).getAsJsonObject()
 			.getAsJsonArray("signals").get(0).getAsJsonObject();
 		assertTrue(counter.has("previous"));
@@ -90,7 +100,7 @@ public class EncounterCaptureTest
 		assertEquals(EncounterObservation.SignalKind.DEATH,report.signals.get(0).kind);
 		assertEquals(12,report.signals.get(1).tickOffset);
 		assertNull(report.signals.get(1).previous);
-		assertNull(report.creditEventId);
+		assertFalse(EncounterReportCodec.encodeObservation(report).has("creditEventId"));
 		assertTrue(report.evidenceOnly);
 	}
 	@Test public void signalHistoryIsBoundedAndCannotCrossAssignments()
@@ -109,14 +119,13 @@ public class EncounterCaptureTest
 	private final String assignment = UUID.randomUUID().toString();
 	private final List<EncounterObservation.Snapshot> reports = new ArrayList<>();
 	private final EncounterCapture capture = new EncounterCapture(reports::add);
-	@Test public void verifiedCaptureKeepsLateLootAndCreditIdentity()
+	@Test public void captureKeepsLateLootAndAssignmentIdentity()
 	{
 		capture.primary(detector, "Example", assignment, 100, 1000, EncounterObservation.SignalKind.DEATH);
 		capture.counter(detector, "Example", assignment, 101, 1600, EncounterObservation.CounterSource.KC_MESSAGE, 8, 9);
-		UUID id = UUID.randomUUID(); capture.verified(id, EncounterObservation.Method.DEATH_AND_COUNTER);
 		capture.loot(detector, "Example", assignment, 102, 2200);
 		capture.advance(112);
-		assertEquals(1, reports.size()); assertEquals(id, reports.get(0).creditEventId);
+		assertEquals(1, reports.size()); assertEquals(UUID.fromString(assignment), reports.get(0).assignmentId);
 		assertEquals(3, reports.get(0).signals.size());
 	}
 	@Test public void overlappingEncountersRetainSeparateReportsAndUncertainLoot()
@@ -139,31 +148,29 @@ public class EncounterCaptureTest
 		assertEquals(UUID.fromString(next), reports.get(1).assignmentId);
 		assertNull(reports.get(1).signals.get(0).previous);
 	}
-	@Test public void logoutPreservesVerifiedVerdictAndEndsCapture()
+	@Test public void logoutPreservesEvidenceAndEndsCapture()
 	{
 		capture.primary(detector, "Example", assignment, 100, 1000, EncounterObservation.SignalKind.DEATH);
-		capture.verified(UUID.randomUUID(), EncounterObservation.Method.DEATH_AND_LOOT);
 		capture.interrupt(103, EncounterObservation.Reason.LOGOUT);
-		assertEquals(EncounterObservation.Outcome.VERIFIED, reports.get(0).outcome);
+		assertEquals(EncounterObservation.Outcome.INTERRUPTED, reports.get(0).outcome);
 		assertFalse(reports.get(0).captureComplete); capture.advance(120); assertEquals(1, reports.size());
 	}
 	@Test public void unknownCounterIsCapturedWithoutCredit()
 	{
 		capture.counter(detector, "Example", assignment, 100, 1000, EncounterObservation.CounterSource.KC_MESSAGE, null, 9);
-		capture.advance(112); assertNull(reports.get(0).creditEventId);
+		capture.advance(112); assertFalse(EncounterReportCodec.encodeObservation(reports.get(0)).has("creditEventId"));
 		assertEquals(EncounterObservation.Outcome.UNRESOLVED, reports.get(0).outcome);
 	}
 	@Test public void wirePayloadMatchesBotNamingAndMillisecondTimestamp()
 	{
 		capture.counter(detector, "Example", assignment, 100, 1000, EncounterObservation.CounterSource.KC_MESSAGE, null, 9);
 		capture.advance(112);
-		com.google.gson.JsonObject body = EncounterReportCodec.encode(reports.get(0));
+		com.google.gson.JsonObject body = EncounterReportCodec.encodeObservation(reports.get(0));
 		assertEquals("1970-01-01T00:00:01.000Z", body.get("observedAt").getAsString());
 		assertEquals("unresolved", body.get("outcome").getAsString());
 		assertEquals("window_expired", body.get("reason").getAsString());
 		assertTrue(body.getAsJsonArray("signals").get(0).getAsJsonObject().get("previous").isJsonNull());
 		assertFalse(body.has("creditEventId"));
-		System.out.println("ENCOUNTER_WIRE_FIXTURE=" + body);
 	}
 	@Test public void repeatedPrimaryInSameTickIsCoalesced()
 	{
@@ -171,12 +178,15 @@ public class EncounterCaptureTest
 		capture.primary(detector, "Example", assignment, 100, 1000, EncounterObservation.SignalKind.DEATH);
 		capture.advance(112); assertEquals(1, reports.size()); assertEquals(1, reports.get(0).signals.size());
 	}
-	@Test public void verifiedInterruptedWirePayloadRetainsCreditReference()
+	@Test public void interruptedWirePayloadRetainsAssignmentAndSignals()
 	{
 		capture.primary(detector, "Example", assignment, 100, 1000, EncounterObservation.SignalKind.DEATH);
 		capture.counter(detector, "Example", assignment, 101, 1600, EncounterObservation.CounterSource.KC_MESSAGE, 8, 9);
-		capture.verified(UUID.randomUUID(), EncounterObservation.Method.DEATH_AND_COUNTER);
 		capture.interrupt(103, EncounterObservation.Reason.SHUTDOWN);
-		System.out.println("ENCOUNTER_WIRE_FIXTURE=" + EncounterReportCodec.encode(reports.get(0)));
+		com.google.gson.JsonObject body = EncounterReportCodec.encodeObservation(reports.get(0));
+		assertEquals(assignment, body.get("assignmentId").getAsString());
+		assertEquals("interrupted", body.get("outcome").getAsString());
+		assertEquals(2, body.getAsJsonArray("signals").size());
+		assertFalse(body.has("creditEventId"));
 	}
 }

@@ -10,8 +10,6 @@ final class EncounterReportCodec
 {
 	private static final java.time.format.DateTimeFormatter TIMESTAMP =
 		new java.time.format.DateTimeFormatterBuilder().appendInstant(3).toFormatter();
-	private static final java.util.regex.Pattern DAGANNOTH_VERSION =
-		java.util.regex.Pattern.compile("dagannoth-(rex|prime|supreme)-beta-v1");
 	private EncounterReportCodec() { }
 	static String deliveryRoute(JsonObject report)
 	{
@@ -19,14 +17,11 @@ final class EncounterReportCodec
 			&& "server_observation".equals(report.get("trackingMode").getAsString())
 			? "/api/runelite/observations" : "/api/runelite/encounter-reports";
 	}
-	static JsonObject encode(EncounterObservation.Snapshot s)
+	private static JsonObject encodeSignals(EncounterObservation.Snapshot s)
 	{
 		JsonObject body = new JsonObject();
 		body.addProperty("schemaVersion", 1);
-		body.addProperty("trackingMode", ("generic-beta-v1".equals(s.detectorVersion)
-			|| "dedicated-total-beta-v1".equals(s.detectorVersion)
-			|| ("Dagannoth Kings".equals(s.boss) && DAGANNOTH_VERSION.matcher(s.detectorVersion).matches())) ? "beta_candidate"
-			: s.evidenceOnly ? "evidence_only" : "verified_credit");
+		body.addProperty("trackingMode", "server_observation");
 		body.addProperty("reportId", s.reportId.toString());
 		body.addProperty("assignmentId", s.assignmentId.toString());
 		body.addProperty("rsn", s.rsn);
@@ -39,8 +34,6 @@ final class EncounterReportCodec
 		body.addProperty("outcome", lower(s.outcome));
 		body.addProperty("captureStatus", s.captureComplete ? "complete" : "interrupted");
 		body.addProperty("reason", lower(s.reason));
-		if (s.method != null) body.addProperty("verificationMethod", lower(s.method));
-		if (s.creditEventId != null) body.addProperty("creditEventId", s.creditEventId.toString());
 		if (s.interruptionReason != null) body.addProperty("interruptionReason", lower(s.interruptionReason));
 		JsonArray signals = new JsonArray();
 		for (EncounterObservation.Signal signal : s.signals)
@@ -63,10 +56,28 @@ final class EncounterReportCodec
 	}
 	static JsonObject encodeObservation(EncounterObservation.Snapshot snapshot)
 	{
-		JsonObject body = encode(snapshot);
-		body.addProperty("trackingMode", "server_observation");
-		body.remove("verificationMethod");
-		body.remove("creditEventId");
+		JsonObject body = encodeSignals(snapshot);
+		JsonObject diagnostics = new JsonObject();
+		diagnostics.addProperty("version", 1);
+		JsonArray counters = new JsonArray();
+		for (EncounterObservation.Diagnostic d : snapshot.diagnostics)
+		{
+			JsonObject item = new JsonObject();
+			item.addProperty("source", d.source);
+			item.addProperty("tickOffset", d.tickOffset);
+			if (d.total == null) item.add("total", JsonNull.INSTANCE); else item.addProperty("total", d.total);
+			counters.add(item);
+		}
+		diagnostics.add("counters", counters);
+		body.add("diagnostics", diagnostics);
+        if (snapshot.chestState != null) {
+            JsonObject chest = new JsonObject();
+            chest.addProperty("version", 1);
+            chest.addProperty("mask", snapshot.chestState[0]);
+            chest.addProperty("ageTicks", snapshot.chestState[1]);
+            chest.addProperty("tickOffset", snapshot.chestState[2]);
+            body.add("chestState", chest);
+        }
 		body.addProperty("outcome", snapshot.captureComplete ? "unresolved" : "interrupted");
 		body.addProperty("reason", snapshot.captureComplete ? "window_expired" : lower(snapshot.interruptionReason));
 		return body;

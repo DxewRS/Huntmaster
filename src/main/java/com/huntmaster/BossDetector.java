@@ -94,12 +94,4 @@ final class BossDetector
     {
         return definition.getCompletionVarpId();
     }
-
-
-
-    // ==================================================
-    // VERIFICATION WINDOW
-    // ==================================================
-
-
 }

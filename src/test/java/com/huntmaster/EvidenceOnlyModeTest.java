@@ -26,18 +26,13 @@ public class EvidenceOnlyModeTest
 			}
 		fail("Canonical Gauntlet definition missing");
 	}
-	@Test(expected=IllegalStateException.class) public void observationCannotClaimVerifiedEvent()
-	{
-		new EncounterObservation(UUID.randomUUID(),UUID.randomUUID(),"Example","Sarachnis",BossDetectorType.STANDARD_NPC,
-			"observation-v1",1000,100,10,true).markVerified(UUID.randomUUID(),EncounterObservation.Method.DEATH_AND_COUNTER);
-	}
 	@Test public void observationSnapshotExplicitlyDeclaresMode()
 	{
 		EncounterObservation record=new EncounterObservation(UUID.randomUUID(),UUID.randomUUID(),"Example","Sarachnis",
 			BossDetectorType.STANDARD_NPC,"observation-v1",1000,100,10,true);
 		record.recordPrimary(EncounterObservation.SignalKind.DEATH,100);record.closeIfExpired(110);
-		assertEquals("evidence_only",EncounterReportCodec.encode(record.snapshot()).get("trackingMode").getAsString());
-		assertNull(record.snapshot().creditEventId);
+		assertEquals("server_observation",EncounterReportCodec.encodeObservation(record.snapshot()).get("trackingMode").getAsString());
+		assertFalse(EncounterReportCodec.encodeObservation(record.snapshot()).has("creditEventId"));
 	}
 	@Test public void counterParserIgnoresColourAndDurationDigits()
 	{

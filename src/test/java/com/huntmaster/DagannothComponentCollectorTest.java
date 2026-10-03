@@ -33,9 +33,9 @@ public class DagannothComponentCollectorTest
         {
             assertEquals("Dagannoth Kings", r.boss);
             assertTrue(r.evidenceOnly);
-            assertNull(r.creditEventId);
+            assertFalse(EncounterReportCodec.encodeObservation(r).has("creditEventId"));
             assertNull(r.signals.get(1).previous);
-            assertEquals("beta_candidate", EncounterReportCodec.encode(r).get("trackingMode").getAsString());
+            assertEquals("server_observation", EncounterReportCodec.encodeObservation(r).get("trackingMode").getAsString());
         }
         c.counter("Your Dagannoth Rex kill count is: 51.", "Example", id, 120, 13000);
         c.advance(130);

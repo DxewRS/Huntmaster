@@ -46,7 +46,7 @@ final class EncounterCapture
 			long time = before.isEmpty() ? now : before.get(0).time;
 			current = new EncounterObservation(UUID.randomUUID(), UUID.fromString(assignment), rsn,
 				detector.getName(), detector.getDetectorType(), detector.getDetectorVersion(), time, start,
-				Math.min(128, detector.getPendingWindowTicks() + tick - start), detector.getDefinition().isEvidenceOnly());
+				Math.min(128, ("The Nightmare".equals(detector.getName()) ? Math.max(24, detector.getPendingWindowTicks()) : detector.getPendingWindowTicks()) + tick - start), detector.getDefinition().isEvidenceOnly());
 			for (EncounterSignalBuffer.Event event : before)
 			{
 				if (event.kind == EncounterObservation.SignalKind.LOOT)
@@ -89,13 +89,13 @@ final class EncounterCapture
 		target.recordLoot(tick, records.size() == 1 ? EncounterObservation.LootAttribution.MATCHING_ENCOUNTER
 			: EncounterObservation.LootAttribution.UNCERTAIN);
 	}
-	void verified(UUID eventId, EncounterObservation.Method method)
+	void chestState(int mask, int age, int tick)
 	{
-		if (current != null && !current.isClosed() && !verdict)
-		{
-			current.markVerified(eventId, method);
-			verdict = true;
-		}
+		if (current != null && primarySeen && primaryTick == tick) current.recordChestState(mask, age, tick);
+	}
+	void diagnostic(String source, Integer total, int tick)
+	{
+		if (current != null) current.diagnostic(source, total, tick);
 	}
 	void uncertain(EncounterObservation.Outcome outcome)
 	{

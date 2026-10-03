@@ -30,7 +30,7 @@ public class ServerVerificationTest
  @Test public void observationPayloadContainsSignalsAndNoLocalVerdict(){
   EncounterObservation r=new EncounterObservation(UUID.randomUUID(),UUID.randomUUID(),"Player","Phosani's Nightmare",BossDetectorType.STANDARD_NPC,"v1",1000000,100,20);
   r.recordPrimary(EncounterObservation.SignalKind.DEATH,100);r.recordCounter(110,EncounterObservation.CounterSource.KC_MESSAGE,114,115);
-  r.markVerified(UUID.randomUUID(),EncounterObservation.Method.DEATH_AND_COUNTER);r.closeIfExpired(120);
+  r.closeIfExpired(120);
   JsonObject body=EncounterReportCodec.encodeObservation(r.snapshot());assertEquals("server_observation",body.get("trackingMode").getAsString());assertEquals("unresolved",body.get("outcome").getAsString());assertFalse(body.has("creditEventId"));assertFalse(body.has("verificationMethod"));assertEquals(2,body.getAsJsonArray("signals").size());
  }
 }
