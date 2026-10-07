@@ -12,12 +12,18 @@ final class CollectionPolicy
     private long expiresAt;
     private boolean supported;
     private boolean updateRequired;
+    private boolean doomEvidence;
+    private boolean encounterVariants;
+    private boolean doomCounters;
+    boolean supportsDoomCounters(long now) { return supportsDoomEvidence(now) && doomCounters; }
+    boolean supportsEncounterVariants(long now) { return supported && now < expiresAt && encounterVariants; }
+    boolean supportsDoomEvidence(long now) { return supported && now < expiresAt && doomEvidence; }
     private String revision="packaged-default";
     String revision(long now) { return now<expiresAt?revision:"packaged-default"; }
     boolean updateRequired() { return updateRequired; }
     void accept(JsonObject value, long now)
     {
-        windows = Collections.emptyMap(); expiresAt = 0; supported = false;updateRequired=false;revision="packaged-default";
+        windows = Collections.emptyMap(); expiresAt = 0; supported = false;updateRequired=false;revision="packaged-default";doomEvidence=false;encounterVariants=false;doomCounters=false;
         try
         {
             if(value!=null && value.has("minimumVersion") && value.get("minimumVersion").getAsInt()>2){updateRequired=true;return;}
@@ -38,6 +44,9 @@ final class CollectionPolicy
                 parsed.put(entry.getKey(), ticks);
             }
             windows = parsed; expiresAt = expiry;
+            doomEvidence = value.has("doomEvidenceVersion") && "1".equals(value.get("doomEvidenceVersion").getAsString());
+            doomCounters = value.has("doomCounterEvidenceVersion") && "1".equals(value.get("doomCounterEvidenceVersion").getAsString());
+            encounterVariants = value.has("encounterVariantVersion") && "1".equals(value.get("encounterVariantVersion").getAsString());
             if(value.has("revision") && value.get("revision").getAsString().matches("[a-zA-Z0-9_.-]{1,40}"))revision=value.get("revision").getAsString();
         }
         catch (RuntimeException ignored) { windows = Collections.emptyMap(); }

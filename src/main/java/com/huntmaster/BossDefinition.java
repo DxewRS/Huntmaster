@@ -133,7 +133,7 @@ final class BossDefinition
 
     static BossDefinition totalCounterCandidate(String name, String profileKey)
     { return new BossDefinition(name, profileKey, "Your " + name, 10,
-        "Doom of Mokhaiotl".equals(name) ? "dedicated-total-observation-v1" : "dedicated-total-beta-v1",
+        DoomCompletionEvidence.BOSS.equals(name) ? DoomCompletionEvidence.DETECTOR_VERSION : "dedicated-total-beta-v1",
         BossDetectorType.COMPLETION, SpecialEncounterTotals.varp(name), true); }
 
     static BossDefinition dagannothComponent(String component)

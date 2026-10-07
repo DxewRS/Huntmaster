@@ -1,16 +1,18 @@
-﻿# Huntmaster RuneLite Plugin
+# Huntmaster RuneLite Plugin
 
 Huntmaster supplies own-account observations and boss encounter evidence to the Bosscape Huntmaster Discord Bot. The bot manages assignments, eligibility decisions, points and ranks. This is an extended-beta project. The initial [Plugin Hub submission](https://github.com/runelite/plugin-hub/pull/16780) was merged on September 28, 2026. The local update described below has not yet been published or reviewed for Plugin Hub release.
 
 ## Using Huntmaster
 
+Version 1.2 adds exact-level completion evidence, including separate levels 8, 9, 10 and higher. Lower levels are reported without a credit decision. Delivery requires a compatible bot advertising `doomEvidenceVersion: 1`; Doom assignments remain disabled. See [Doom evidence and live validation](DOOM_EVIDENCE.md). Production bot protocol support is deployed; natural Doom/Awakened gameplay validation remains outstanding. This update is not yet published through Plugin Hub.
+
 The sidebar's Tracking Status shows collection readiness, connection recovery, a full queue, or a required RuneLite plugin update. Its latest-report status distinguishes queued evidence, acknowledged receipt, confirmed credit and no new credit. A receipt alone never means a kill counted. Reports from earlier sessions are not shown as new activity.
 
 Use **Copy diagnostics** when reporting a tracking problem. It copies the packaged build identifier, collector version, current collection state, queue size, latest report ID/outcome/reason and current/report capture-policy revisions. It excludes your RSN, credentials, raw chat and request bodies. Copying only writes to your local clipboard; you decide whether to share it. Report details clear on logout, profile change or plugin shutdown. This adds no polling or gameplay controls.
 
-The packaged build identifier for this candidate is `collector-v2-diagnostics-1` (`CollectorDiagnostics.BUILD`). It is a release identifier, not a Git hash; maintainers must bump it for the next changed release candidate. Reports also carry the policy revision captured when their observation window started, so later server setting changes do not relabel older evidence.
+The packaged build identifier for this candidate is `collector-v2-variants-1` (`CollectorDiagnostics.BUILD`). It is a release identifier, not a Git hash; maintainers must bump it for the next changed release candidate. Reports also carry the policy revision captured when their observation window started, so later server setting changes do not relabel older evidence.
 
-The pending collector-v2 update reports supported encounters independently of the assigned boss, including when there is no assignment. Reports retain the actual encounter and its own counter; the bot decides assignment matching, harder-to-lower substitutions, credit and rewards. Unassigned observations never award task progress. No player chat text is collected. See PRIVACY.md for disclosure.
+The collector-v2 implementation reports supported encounters independently of the assigned boss, including when there is no assignment. Reports retain the actual encounter and its own counter; the bot decides assignment matching, harder-to-lower substitutions, credit and rewards. Unassigned observations never award task progress. No player chat text is collected. See PRIVACY.md for disclosure.
 
 Counter notifications use complete encounter identities and reviewed aliases, including when the counter value is unreadable. A Corrupted Gauntlet or Phosani's Nightmare notification cannot also create a diagnostic for the lower variant. Independent notifications still retain separate captures. Unknown notification formats are ignored rather than attributed through a partial boss-name match.
 
@@ -30,7 +32,7 @@ Reports include killed-component flags for Barrows and Moons of Peril alongside 
 
 Public builds use https://huntmaster.bosscape.com. The packaged release gate is enabled after successful public-client registration, assignment, persistence and completion checks; it never falls back to a player's localhost. Development `run` uses http://127.0.0.1:8787. Redirects are disabled and requests are restricted to the packaged origin. A rejected registration shows one login-safe notice and retries; membership/Discord failures do not grant credit.
 
-The plugin sends observations through `/api/runelite/observations` and reads bot decisions from `/api/runelite/verification-status`. It does not create new locally verified KC requests. Existing saved legacy events retain their original delivery route and IDs. Phosani's Nightmare has a 20-tick default capture window; regular Nightmare has at least 24 ticks. The new collector-v2 reports wait in the queue until the bot advertises support in assignment responses. This update requires the matching bot deployment and in-game acceptance before publication.
+The plugin sends observations through `/api/runelite/observations` and reads bot decisions from `/api/runelite/verification-status`. It does not create new locally verified KC requests. Existing saved legacy events retain their original delivery route and IDs. Phosani's Nightmare has a 20-tick default capture window; regular Nightmare has at least 24 ticks. The new collector-v2 reports wait in the queue until the bot advertises support in assignment responses. The production bot supports this protocol; natural gameplay acceptance remains a separate validation step.
 
 Pending kills retain their event/assignment IDs across retries and restarts. During a detected connection outage, collection has a ten-minute grace period, then pauses new tracking while preserving saved reports. The bot allows 60 seconds for delayed evidence before warning about an unconfirmed personal counter increase. Collector v2 continues collecting after verification warnings so failures remain diagnosable; outage and backlog limits still apply. Death-only observations do not count as personal failures. The plugin polls decisions every ten seconds with an active assignment; relog starts a fresh warning session. The bot rejects outdated assignments and duplicate credit. Beta evidence support is not equivalent to strict verification for every boss.
 
@@ -48,9 +50,9 @@ Use Java 11. Run `./gradlew test` for automated checks and `./gradlew run` for t
 
 `./gradlew runPublic` launches a development client against the packaged endpoint without the localhost override, once its release gate is enabled. The plugin uses a BSD-2-Clause license.
 
-The collector-v2 changes are local and unpublished. Before release, test off-assignment encounters, CG during a normal Gauntlet task, mixed variant counters, unassigned collection, chest resets, logout/account changes, network recovery and older-bot queue retention. The existing [submission marker](submission/huntmaster.marker) is unchanged by this implementation pass.
+The new Doom/Awakened extension is not yet published through Plugin Hub. Before release, test off-assignment encounters, CG during a normal Gauntlet task, mixed variant counters, unassigned collection, chest resets, logout/account changes, network recovery and older-bot queue retention. The existing [submission marker](submission/huntmaster.marker) is unchanged by this implementation pass.
 
-The bot independently checks published HiScores totals for accepted plugin credit. Ordinary progression remains immediate; unknown/delayed totals remain uncorroborated and contradictions request staff review. In Bosscape Discord, open My Huntmaster and select **Verification Status** from the **History, verification and help** menu to view your verification record. These checks add confidence, not cryptographic gameplay proof. High-value reward verification requires independent support or recorded staff approval under a separate reward policy.
+The bot independently checks published HiScores totals for accepted plugin credit. Ordinary progression remains immediate; unknown/delayed totals remain uncorroborated and contradictions request staff review. Ask Huntmaster staff if you need a verification record review. These checks add confidence, not cryptographic gameplay proof. High-value reward verification requires independent support or recorded staff approval under a separate reward policy.
 
 ## Group recruitment alerts (1.1)
 
@@ -67,3 +69,22 @@ The sidebar reuses existing assignment requests; it adds no routine polling loop
 The sidebar displays server-authoritative assignment information. Use **Open Huntmaster in Discord** to manage assignments in Bosscape. This navigation only opens the existing Discord destination; it does not request, reroll or cancel an assignment. The sidebar adds no authorization credentials or additional routine polling.
 
 After the server confirms completion of the assignment observed in this session, the sidebar retains a Task Completed card with the actual awarded points. It clears on a new assignment, logout, world hop, account change, plugin reload or client restart. The overlay disappears immediately on completion. This display is memory-only, uses existing responses, and requires a bot that supplies completion metadata.
+
+## Doom and Awakened encounter update (1.2)
+
+Structured Doom completion observations are preserved. This update also reports
+normal/awakened DT2 personal completion totals with optional bounded encounterVariant
+metadata. Copy Diagnostics now includes canonical encounter, variant and Doom facts.
+See [the exact bot contract](ENCOUNTER_VARIANT_CONTRACT.md) and [Doom evidence](DOOM_EVIDENCE.md).
+The production bot supports all three optional V1 capabilities. Plugin Hub publication and natural Doom/Awakened gameplay validation remain outstanding. Doom credit is
+still disabled. RuneLite observes; the bot decides Hunt credit, matching and rewards.
+### Doom per-level evidence
+
+The collector also observes fixed RuneLite per-level completion
+counters. It reports raw before/after values and preserves Doom's exact level
+notification; it makes no Hunt qualification decision. Existing Doom evidence
+version 1 and aggregate observation remain. Additional `doomCounters` serialization
+requires optional `doomCounterEvidenceVersion: 1` from a capable bot; older bots
+receive the existing payload. See `DOOM_EVIDENCE.md` for the complete contract,
+counter IDs, duplicate identity and remaining live-gameplay checks. This source
+is not a Plugin Hub release and does not enable Doom Hunt credit.

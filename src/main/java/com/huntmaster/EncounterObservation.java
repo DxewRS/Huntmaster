@@ -65,12 +65,18 @@ final class EncounterObservation
 		final boolean captureComplete;
 		final List<Signal> signals;
 		final int[] chestState;
+		final DoomCompletionEvidence doomState;
+		final DoomLevelCounters.Observation doomCounter;
+		final EncounterVariant encounterVariant;
 		final List<Diagnostic> diagnostics;
 
 		private Snapshot(EncounterObservation record)
 		{
             policyRevision=record.policyRevision;
 			chestState = record.chestState == null ? null : record.chestState.clone();
+			doomState = record.doomState;
+			doomCounter = record.doomCounter;
+			encounterVariant = record.encounterVariant;
 			diagnostics = Collections.unmodifiableList(new ArrayList<>(record.diagnostics));
 			evidenceOnly = record.evidenceOnly;
 			reportId = record.reportId;
@@ -108,6 +114,37 @@ final class EncounterObservation
 	private int latestTickOffset;
 	private boolean closed;
 	private int[] chestState;
+	private DoomCompletionEvidence doomState;
+	private DoomLevelCounters.Observation doomCounter;
+	boolean hasDoomCounter() { return doomCounter!=null; }
+	boolean matchesDoomLevel(DoomLevelCounters.Source source) { return doomState==null || source.matches(doomState.completedLevel); }
+	boolean matchesDoomCounter(int level) { return doomCounter==null || doomCounter.source.matches(level); }
+	void recordDoomCounter(DoomLevelCounters.Observation evidence, int tick)
+	{
+		if(!DoomCompletionEvidence.BOSS.equals(boss) || doomCounter!=null || !acceptsTick(tick))
+			throw new IllegalStateException("Invalid Doom counter context");
+		doomCounter=evidence.at(offset(tick));
+		// Marks collection of raw data, never manufactures COMPLETION or doomState.
+		recordPrimary(SignalKind.DIAGNOSTIC,tick);
+	}
+	private EncounterVariant encounterVariant;
+	void variant(EncounterVariant variant)
+	{
+		if (closed || !EncounterVariant.supports(boss) || variant == null
+			|| encounterVariant != null && encounterVariant != variant)
+			throw new IllegalArgumentException("Invalid encounter variant context");
+		encounterVariant = variant;
+	}
+	boolean hasDoomCompletion() { return doomState != null; }
+	boolean hasCounter() { return signals.stream().anyMatch(s -> s.kind == SignalKind.COUNTER); }
+	boolean acceptsTick(int tick) { return !closed && offset(tick) >= 0; }
+	void recordDoomCompletion(DoomCompletionEvidence evidence, int tick)
+	{
+		if (!DoomCompletionEvidence.BOSS.equals(boss) || doomState != null || !acceptsTick(tick))
+			throw new IllegalStateException("Invalid Doom completion context");
+		doomState = evidence.at(offset(tick));
+		recordPrimary(SignalKind.COMPLETION, tick);
+	}
 	static final class Diagnostic
 	{
 		final String source;

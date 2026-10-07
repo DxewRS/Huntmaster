@@ -606,6 +606,8 @@ public class HuntmasterPlugin extends Plugin
 		diagnostic(this::updateServerVerification);
 		updateOutageTracking();
 		showOutageNotices();
+		diagnostic(this::observeDt2Completions);
+		diagnostic(this::observeDoomCounters);
 		if (!reportQueue.collectionBackpressured()) backlogNoticeShown = false;
 		else if (!backlogNoticeShown && client.getGameState() == GameState.LOGGED_IN)
 		{
@@ -617,6 +619,9 @@ public class HuntmasterPlugin extends Plugin
 			loadObservedBaselines();
 			BossDetector pausedDetector = registeredDetector(assignedBoss);
 			if (pausedDetector != null) refreshDetectorBaseline(pausedDetector, client.getGameState() == GameState.LOGGED_IN);
+			for (BossDetector detector : observationDetectors())
+				if (DoomCompletionEvidence.BOSS.equals(detector.getName()))
+					refreshDetectorBaseline(detector, client.getGameState() == GameState.LOGGED_IN);
 			return;
 		}
   for(BossDetector detector:observationDetectors()) {
@@ -642,7 +647,8 @@ public class HuntmasterPlugin extends Plugin
 		Integer previous=detector.getLastKc();
 		if (previous!=null && total!=previous)
         {
-            if (detector.getDefinition().isEvidenceOnly()) observePrimary(detector, EncounterObservation.SignalKind.COMPLETION);
+            if (detector.getDefinition().isEvidenceOnly() && !DoomCompletionEvidence.BOSS.equals(detector.getName()))
+                observePrimary(detector, EncounterObservation.SignalKind.COMPLETION);
             observeCounter(detector, EncounterObservation.CounterSource.COMPLETION_VARP, previous, total);
         }
 		detector.setLastKc(total);
@@ -652,6 +658,8 @@ public class HuntmasterPlugin extends Plugin
 public void onRuneScapeProfileChanged(
 		RuneScapeProfileChanged event)
 {
+	resetDt2Observation();
+	resetDoomObservation();
     collectorDiagnostics.reset();publishedDiagnostics=null;publishDiagnostics();
 	recruitmentNotifications.reset();
 	loadObservedBaselines();
@@ -818,6 +826,15 @@ public void onRuneScapeProfileChanged(
 
 		String message =
 				event.getMessage();
+		DoomCompletionEvidence doom = DoomCompletionEvidence.parse(event.getType(), message);
+		if (doom != null)
+		{
+			for (BossDetector d : observationDetectors())
+				if (DoomCompletionEvidence.BOSS.equals(d.getName()) && canObserve(d))
+					diagnostic(() -> encounterCapture.doomCompletion(d, client.getLocalPlayer().getName(), assignmentId,
+						client.getTickCount(), System.currentTimeMillis(), doom));
+			return;
+		}
 		for(BossDetector d:observationDetectors())if(CounterMessageEvidence.related(message,d.getName()) && GenericKcRouter.parse(message,d.getName())==null)
 			encounterCapture.notice(d,client.getLocalPlayer().getName(),assignmentId,client.getTickCount(),System.currentTimeMillis(),"UNPARSED_"+event.getType().name(),null);
 
@@ -1604,6 +1621,11 @@ public void onRuneScapeProfileChanged(
 	@Subscribe
 	public void onGameStateChanged(GameStateChanged event)
 	{
+		if (event.getGameState() != GameState.LOGGED_IN)
+		{ resetDt2Observation(); }
+		if (event.getGameState() == GameState.LOGIN_SCREEN || event.getGameState() == GameState.HOPPING
+				|| event.getGameState() == GameState.CONNECTION_LOST || event.getGameState() == GameState.LOGGING_IN)
+			resetDoomObservation();
 		if (event.getGameState() == GameState.HOPPING) { dashboard.clearCompleted(); publishDashboard(); }
 		if (event.getGameState() != GameState.LOGGED_IN) { recruitmentNotifications.reset(); serverVerification.release(); }
 		if (event.getGameState() == GameState.LOGGED_IN) accountSnapshotLoginTick = client.getTickCount();
@@ -1933,8 +1955,18 @@ public void onRuneScapeProfileChanged(
 		encounterCapture.interrupt(tick, reason);
 		dagannothCapture.interrupt(tick, reason);
 	}
+	private void resetDoomObservation()
+	{
+		doomLevelCounters.reset(); doomCounterContext=null;
+		if (!running || !reportsEnabled) return;
+		encounterCapture.interruptDoom(client.getTickCount());
+		for (BossDetector detector : observationDetectors())
+			if (DoomCompletionEvidence.BOSS.equals(detector.getName())) detector.setLastKc(null);
+	}
 	private void clearEncounterCaptures()
 	{
+		doomLevelCounters.reset(); doomCounterContext=null;
+		dt2Completions.reset(); dt2Context=null;
 		chestStates.clear(); chestDetector=null;
 		encounterCapture.clear();
 		dagannothCapture.clear();
@@ -1951,6 +1983,44 @@ public void onRuneScapeProfileChanged(
 		if (canObserve(detector)) diagnostic(() -> encounterCapture.primary(detector, client.getLocalPlayer().getName(), assignmentId,
 			client.getTickCount(), System.currentTimeMillis(), kind));
 		observeProfileSnapshot(detector);
+	}
+	private final Dt2CompletionEvidence dt2Completions = new Dt2CompletionEvidence();
+	private final DoomLevelCounters doomLevelCounters=new DoomLevelCounters();
+	private String doomCounterContext;
+	private void observeDoomCounters()
+	{
+		Player player=client.getLocalPlayer();
+		if(!reportsEnabled || client.getGameState()!=GameState.LOGGED_IN || player==null)
+		{ doomLevelCounters.reset(); doomCounterContext=null; return; }
+		String context=player.getName()+":"+configManager.getRSProfileKey()+":"+assignmentId;
+		if(!java.util.Objects.equals(context,doomCounterContext))
+		{ resetDoomObservation(); doomCounterContext=context; }
+		doomLevelCounters.sample(client::getVarpValue,canTrackNewKills(),counter -> {
+			for(BossDetector detector:observationDetectors())
+				if(DoomCompletionEvidence.BOSS.equals(detector.getName()) && canObserve(detector))
+					encounterCapture.doomCounter(detector,player.getName(),assignmentId,client.getTickCount(),System.currentTimeMillis(),counter);
+		});
+	}
+	private String dt2Context;
+	private void resetDt2Observation()
+	{
+		dt2Completions.reset(); dt2Context=null;
+		if(running && reportsEnabled && client!=null)encounterCapture.interruptVariants(client.getTickCount());
+	}
+	private void observeDt2Completions()
+	{
+		if(!reportsEnabled) { resetDt2Observation(); return; }
+		Player player=client.getLocalPlayer();
+		if (client.getGameState()!=GameState.LOGGED_IN || player==null)
+		{ dt2Completions.reset(); dt2Context=null; return; }
+		String context=player.getName()+":"+configManager.getRSProfileKey()+":"+assignmentId;
+		if (!java.util.Objects.equals(context,dt2Context)) { dt2Completions.reset(); dt2Context=context; }
+		dt2Completions.sample(client::getVarpValue,canTrackNewKills(),completion -> {
+			for (BossDetector detector:observationDetectors())
+				if (detector.getName().equals(completion.boss) && canObserve(detector))
+					encounterCapture.variantCompletion(detector,player.getName(),assignmentId,client.getTickCount(),
+						System.currentTimeMillis(),completion.variant,completion.previous,completion.current);
+		});
 	}
 	private void observeProfileSnapshot(BossDetector detector)
 	{
@@ -1981,7 +2051,14 @@ public void onRuneScapeProfileChanged(
         collectionSignals += snapshot.signals.size(); lastCollectionSignalAt = snapshot.observedAt;
 		try
 		{
-			JsonObject report = EncounterReportCodec.encodeObservation(snapshot);
+			JsonObject report = EncounterReportCodec.encodeObservation(snapshot,
+				collectionPolicy.supportsEncounterVariants(System.currentTimeMillis()),
+				collectionPolicy.supportsDoomCounters(System.currentTimeMillis()));
+			if (snapshot.doomState != null && Boolean.getBoolean("huntmaster.developmentMode"))
+				log.debug("Huntmaster Doom evidence: level={} extended={} messageTickOffset={} counterSignals={} capture={} report={}",
+					snapshot.doomState.completedLevel, snapshot.doomState.extended, snapshot.doomState.tickOffset,
+					snapshot.signals.stream().filter(s -> s.kind == EncounterObservation.SignalKind.COUNTER).count(),
+					snapshot.captureComplete ? "complete" : "interrupted", snapshot.reportId);
 			String payload = report.toString();
 			boolean added = reportQueue.add(snapshot.reportId.toString(), payload, snapshot.observedAt,
 				System.currentTimeMillis(), isBetaCredit(report));
@@ -1990,7 +2067,7 @@ public void onRuneScapeProfileChanged(
 			{
                 Player current=client.getLocalPlayer();
                 if(current!=null && sameRsn(current.getName(),snapshot.rsn) && sameRsn(assignmentRsn,snapshot.rsn))
-                    collectorDiagnostics.queued(snapshot.reportId.toString(),snapshot.policyRevision);
+                    collectorDiagnostics.queued(snapshot);
                 publishDiagnostics();
 				saveEncounterReports();
 				// Use the same serialized queue, eligibility gates and retry path as the timer.
@@ -2048,7 +2125,11 @@ public void onRuneScapeProfileChanged(
 				|| reportPlayer == null || !sameRsn(reportPlayer.getName(), assignmentRsn)) return;
 		EncounterReportQueue.Entry entry = reportQueue.next(System.currentTimeMillis(), candidate ->
 		{
-			try { JsonObject queued = gson.fromJson(candidate.payload, JsonObject.class); return (!queued.has("collectorVersion") || collectionPolicy.supported()) && sameRsn(reportPlayer.getName(), queued.get("rsn").getAsString()); }
+			try { JsonObject queued = gson.fromJson(candidate.payload, JsonObject.class); return (!queued.has("collectorVersion") || collectionPolicy.supported())
+				&& (!queued.has("doomState") || collectionPolicy.supportsDoomEvidence(System.currentTimeMillis()))
+				&& (!queued.has("doomCounters") || collectionPolicy.supportsDoomCounters(System.currentTimeMillis()))
+				&& (!queued.has("encounterVariant") || collectionPolicy.supportsEncounterVariants(System.currentTimeMillis()))
+				&& sameRsn(reportPlayer.getName(), queued.get("rsn").getAsString()); }
 			catch (RuntimeException ex) { return true; } // Let the malformed-entry handler quarantine it.
 		});
 		saveEncounterReports();

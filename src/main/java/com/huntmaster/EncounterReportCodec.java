@@ -59,7 +59,22 @@ final class EncounterReportCodec
 	}
 	static JsonObject encodeObservation(EncounterObservation.Snapshot snapshot)
 	{
+		return encodeObservation(snapshot, true);
+	}
+	static JsonObject encodeObservation(EncounterObservation.Snapshot snapshot, boolean variantSupported)
+	{
+		return encodeObservation(snapshot,variantSupported,true);
+	}
+	static JsonObject encodeObservation(EncounterObservation.Snapshot snapshot, boolean variantSupported, boolean doomCountersSupported)
+	{
 		JsonObject body = encodeSignals(snapshot);
+		if (snapshot.encounterVariant != null)
+		{
+			if (!EncounterVariant.supports(snapshot.boss)) throw new IllegalArgumentException("Invalid variant boss");
+			// Normal legacy delivery remains available. Never erase AWAKENED identity.
+			if (variantSupported || snapshot.encounterVariant == EncounterVariant.AWAKENED)
+				body.addProperty("encounterVariant", snapshot.encounterVariant.name());
+		}
 		JsonObject diagnostics = new JsonObject();
 		diagnostics.addProperty("version", 1);
 		JsonArray counters = new JsonArray();
@@ -73,6 +88,30 @@ final class EncounterReportCodec
 		}
 		diagnostics.add("counters", counters);
 		body.add("diagnostics", diagnostics);
+		if (snapshot.doomState != null)
+		{
+			DoomCompletionEvidence evidence = snapshot.doomState;
+			JsonObject doom = new JsonObject();
+			doom.addProperty("version", 1);
+			doom.addProperty("completedLevel", evidence.completedLevel);
+			doom.addProperty("extended", evidence.extended);
+			doom.addProperty("source", evidence.source);
+			doom.addProperty("completionMessageObserved", true);
+			doom.addProperty("tickOffset", evidence.tickOffset);
+			body.add("doomState", doom);
+		}
+		if(snapshot.doomCounter!=null && doomCountersSupported)
+		{
+			DoomLevelCounters.Observation evidence=snapshot.doomCounter;
+			JsonObject counter=new JsonObject();
+			counter.addProperty("source",evidence.source.name());
+			counter.addProperty("previous",evidence.previous);
+			counter.addProperty("current",evidence.current);
+			counter.addProperty("tickOffset",evidence.tickOffset);
+			JsonObject countersState=new JsonObject(); countersState.addProperty("version",1);
+			JsonArray observations=new JsonArray(); observations.add(counter);
+			countersState.add("counters",observations); body.add("doomCounters",countersState);
+		}
         if (snapshot.chestState != null) {
             JsonObject chest = new JsonObject();
             chest.addProperty("version", 1);
