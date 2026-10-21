@@ -43,13 +43,20 @@ final class RecruitmentNotifications
     Poll begin(String account, Set<String> choices, long now)
     {
         if (account == null || choices.isEmpty()) { reset(); return null; }
-        if (!account.equals(rsn) || !choices.equals(selected) || lastSuccess != 0 && now - lastSuccess > 15000
+        if (!account.equals(rsn) || lastSuccess != 0 && now - lastSuccess > 15000
             || pending != null && now - pending.startedAt > 10000) reset();
         rsn = account;
         selected = new HashSet<>(choices);
         if (pending != null) return null;
         pending = new Poll(generation, now, rsn, cursor);
         return pending;
+    }
+
+    /** Preference edits filter the next response without throwing away its cursor or duplicate history. */
+    void preferences(Set<String> choices)
+    {
+        if (choices.isEmpty()) reset();
+        else selected = new HashSet<>(choices);
     }
 
     boolean isCurrent(Poll poll)

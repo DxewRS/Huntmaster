@@ -41,6 +41,26 @@ tasks.withType(Test).configureEach {
 	systemProperty 'huntmaster.testHome', testHome
 }
 
+def pluginJar = tasks.named('jar', Jar)
+def packagedJarPath = providers.gradleProperty('packagedJar')
+
+tasks.register('verifyPackagedResources', JavaExec) {
+	group = 'verification'
+	description = 'Verify plugin classes and artwork from the built JAR, without development-folder fallback.'
+	dependsOn pluginJar, tasks.named('testClasses')
+	classpath = sourceSets.test.runtimeClasspath
+	mainClass = 'com.huntmaster.PackagedResourceCheck'
+	systemProperty 'user.home', layout.buildDirectory.dir('test-user-home').get().asFile.absolutePath
+	doFirst {
+		def artifact = packagedJarPath.isPresent() ? file(packagedJarPath.get()) : pluginJar.get().archiveFile.get().asFile
+		setArgs([artifact.absolutePath])
+	}
+}
+
+tasks.named('check') {
+	dependsOn tasks.named('verifyPackagedResources')
+}
+
 tasks.register('run', JavaExec) {
 	classpath = sourceSets.test.runtimeClasspath
 	mainClass = pluginMainClass

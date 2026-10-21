@@ -1,6 +1,6 @@
 # Doom completion and counter evidence V1
 
-Plugin version 1.2 extends published baseline `8346964dd3a49ebcc8d17b9c7e3a173a4b5576b9`; not yet published through Plugin Hub. Production bot support is deployed; natural Doom/Awakened gameplay validation remains outstanding. Doom assignments remain disabled. Future bot policy is one potential KC for each successfully completed level >=8. The plugin reports lower levels too and makes no credit decision.
+Plugin version 1.2 at published commit `ccd4b442a82315da87ff57556ce8c847b0bf2ec5` introduced this evidence extension. The local version 1.3 candidate, build `collector-v2-release-1`, preserves it and is not yet published. Production bot support is deployed; natural Doom/Awakened gameplay validation remains outstanding. Doom assignments remain disabled. Future bot policy is one potential KC for each successfully completed level >=8. The plugin reports lower levels too and makes no credit decision.
 
 ## Capture and schema
 
@@ -71,7 +71,7 @@ Before enabling Doom: prove real message formats and counter timing at 7/8/9+, a
 
 The pending DT2 variant contract and diagnostic additions are documented in ENCOUNTER_VARIANT_CONTRACT.md. This update does not enable Doom Hunt KC.
 
-## Per-level observation extension (not yet published through Plugin Hub)
+## Per-level observation extension (published in version 1.2)
 
 RuneLite 1.13.1's resolved gameval source defines the following. Names describe
 apparent purpose; these definitions do not establish live update timing or coverage.
@@ -150,10 +150,11 @@ sufficient as a duplicate key: the 8+ counter is shared across exact deep levels
 No client qualification, reward or credit rule was added. Future threshold >=8
 is unchanged; lower-level observations are still reported. Doom credit stays off.
 
-Copy Diagnostics shows aggregate before/after, allowlisted per-level source and
-before/after, and whether message/counter were paired. A paired status describes
-capture association, not verification; raw jumps/decreases remain visible. No
-RSN, raw chat, request body or credential is copied.
+Structured reports retain aggregate before/after, allowlisted per-level source and
+before/after, and associated message/counter facts. Capture association is not
+verification; raw jumps/decreases remain visible. The report envelope includes
+the player's own RSN, but no raw chat or credentials. The old local clipboard/status
+display cache is removed in version 1.3.
 
 Deterministic tests cover levels 7, 8, 9 and 12, both arrival orders, aggregate
 coexistence, baselines/pause/reset/unavailable values, unchanged/decreased/jumping
@@ -161,7 +162,9 @@ totals, duplicate messages/counters, ambiguous/wrong-level/expired evidence,
 interruption, real lifecycle events, real plugin sampling, queue persistence,
 retry identity, optional serialization and capability downgrade/expiry/privacy.
 Live 7/8/9+ counter values and timing still require natural gameplay confirmation.
-This release review commits and pushes only the plugin repository. Plugin Hub publication and Doom credit activation remain separate; no live gameplay validation is claimed.
+The original 1.2 review concerned only the plugin repository. The current 1.3
+preparation has no commit/push or Hub publication authorization. Doom credit
+activation remains separate; no live Doom gameplay validation is claimed.
 
 Final local verification October 6, 2026: previous plugin baseline 178 tests;
 clean standard build and complete suite now 214/214, failures 0, errors 0, skips 0.
@@ -170,6 +173,6 @@ Whitespace check passes. Logs: `build-doom-per-level-clean.log` and
 `build/doom-source-export-test.log`; exported source location is recorded in
 `build/doom-source-export-path.txt`. These checks do not constitute live validation.
 
-## Final release contract review
+## Historical 1.2 release contract review
 
 Production bot commit 2f1f8f0b0f8361a30e6e9b014ba114bc59c32147 advertises all three V1 capabilities. Its 180/180 test files pass. Plugin version 1.2 uses build collector-v2-variants-1. Automated/source checks establish supplied-input behavior; actual Doom 7/8/9+ and Awakened counter timing remain unvalidated in natural gameplay. Doom credit and assignments remain disabled. No additional bot deployment is required for these optional fields.

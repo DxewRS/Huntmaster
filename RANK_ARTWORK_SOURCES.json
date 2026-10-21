@@ -1,0 +1,67 @@
+{
+    "owner":  "Huntmaster rank sidebar",
+    "kind":  "Canonical packaged assets; not disposable",
+    "runtime":  "Local plugin resources only; no Wiki, Discord or bot image requests",
+    "images":  [
+                   {
+                       "file":  "alpha-hunter.png",
+                       "source":  "Huntmaster bot/assets/ranks/alpha-hunter.png",
+                       "sha256":  "cfcc62186c5e20cfce37d878386f14f8d9c59fdea0b047e6018766d49863fa86",
+                       "bytes":  131019
+                   },
+                   {
+                       "file":  "apex-hunter.png",
+                       "source":  "Huntmaster bot/assets/ranks/apex-hunter.png",
+                       "sha256":  "7b5a5ec279802e1aa28fe1178a0f828a99583a0877d1b7f2f4b2b35e3d3d71f7",
+                       "bytes":  136295
+                   },
+                   {
+                       "file":  "elite-hunter.png",
+                       "source":  "Huntmaster bot/assets/ranks/elite-hunter.png",
+                       "sha256":  "a484991b4fefecced113668cd03577abceab35dae6732c409a50ec10fb038294",
+                       "bytes":  108725
+                   },
+                   {
+                       "file":  "godly-hunter.png",
+                       "source":  "Huntmaster bot/assets/ranks/godly-hunter.png",
+                       "sha256":  "5e6fe852be3a2ab7a480ec370cdff0c14246eedbaceb7461ae3521f3b6c02161",
+                       "bytes":  126676
+                   },
+                   {
+                       "file":  "master-hunter.png",
+                       "source":  "Huntmaster bot/assets/ranks/master-hunter.png",
+                       "sha256":  "dde8208e1efce18af3f9f730c21d70eca0a68130a23314aab70360598f33747c",
+                       "bytes":  136456
+                   },
+                   {
+                       "file":  "new-blood.png",
+                       "source":  "Huntmaster bot/assets/ranks/new-blood.png",
+                       "sha256":  "9ec055d8699aa6af807767bb7c08586a7634f526f27fdc6982add7a0611a9d56",
+                       "bytes":  112292
+                   },
+                   {
+                       "file":  "novice-hunter.png",
+                       "source":  "Huntmaster bot/assets/ranks/novice-hunter.png",
+                       "sha256":  "c1c3995f7bfd5df157b98fb1e2880c5bd2286675d8f410090c9a3c8771e03728",
+                       "bytes":  100591
+                   },
+                   {
+                       "file":  "seasoned-hunter.png",
+                       "source":  "Huntmaster bot/assets/ranks/seasoned-hunter.png",
+                       "sha256":  "ec63b19f11f559ffaa2c624723e381ad701f5d021eeb83f4e8628fa712c4493e",
+                       "bytes":  133656
+                   },
+                   {
+                       "file":  "skilled-hunter.png",
+                       "source":  "Huntmaster bot/assets/ranks/skilled-hunter.png",
+                       "sha256":  "97acc5ba54d2d816c96473baf0c7601dee6beb4829a55bd026f50584f00b5c15",
+                       "bytes":  109051
+                   },
+                   {
+                       "file":  "veteran-hunter.png",
+                       "source":  "Huntmaster bot/assets/ranks/veteran-hunter.png",
+                       "sha256":  "a3f6d28e11e239f5fd32a15c1ceab4d51ec5dfee37029be4a0a3921f99af20ee",
+                       "bytes":  130275
+                   }
+               ]
+}

@@ -17,6 +17,7 @@ final class EncounterReportQueue
 		long nextAttemptAt;
 		boolean creditCandidate;
 		transient boolean inFlight;
+		transient EncounterReportMetadata delivery;
 	}
 	private final Map<String, Entry> entries = new LinkedHashMap<>();
 	private long revision;
@@ -42,6 +43,7 @@ final class EncounterReportQueue
 		if (!creditCandidate && (diagnosticCount >= MAX_REPORTS || payloadBytes + size > MAX_BYTES)) return false;
 		Entry entry = new Entry(); entry.id = id; entry.payload = payload; entry.createdAt = createdAt;
 		entry.creditCandidate = creditCandidate;
+		entry.delivery = EncounterReportMetadata.read(payload);
 		entries.put(id, entry);
 		payloadBytes += size;
 		if (!creditCandidate) diagnosticCount++;

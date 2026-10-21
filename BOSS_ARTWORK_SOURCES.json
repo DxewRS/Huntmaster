@@ -1,0 +1,579 @@
+{
+  "owner": "Huntmaster Current Hunt sidebar",
+  "kind": "canonical packaged assets; not disposable",
+  "copyright": "RuneScape game artwork copyright Jagex Ltd. Game renders sourced from OSRS Wiki; no AI or fan-art replacements.",
+  "budget": {
+    "maximumFiles": 64,
+    "maximumBytes": 8388608
+  },
+  "rendering": "Deterministic browser decode to PNG, within 350x290 preserving aspect and transparency. No creative edits. Collection bosses use the named representative component; animated sources display a static frame.",
+  "images": [
+    {
+      "boss": "Vardorvis",
+      "file": "618e20f43e79c11a3ec4.png",
+      "source": "https://oldschool.runescape.wiki/images/Vardorvis.png?48af8",
+      "wikiFile": "https://oldschool.runescape.wiki/w/File:Vardorvis.png",
+      "sourceSha256": "51df948dba2f9c1f247e532d7bed92d2b6560bcc1206b7773864334d3d89ef6a",
+      "sha256": "618e20f43e79c11a3ec4401eda56a061cb610cb3ccb79e6377a61f6f03d6502a",
+      "bytes": 43047
+    },
+    {
+      "boss": "Duke Sucellus",
+      "file": "5360d062b9c92db645fe.png",
+      "source": "https://oldschool.runescape.wiki/images/Duke_Sucellus.png?d588a",
+      "wikiFile": "https://oldschool.runescape.wiki/w/File:Duke%20Sucellus.png",
+      "sourceSha256": "fc6bd2f488b23117d6fd7eb559f55a9bdf0bd106871350d6d32945587caf77b6",
+      "sha256": "5360d062b9c92db645fefcafc76810aa06abce0a699c55590c91a1e9c72bfe17",
+      "bytes": 77734
+    },
+    {
+      "boss": "The Leviathan",
+      "file": "252c9f910527ac0590ba.png",
+      "source": "https://oldschool.runescape.wiki/images/The_Leviathan.png?d588a",
+      "wikiFile": "https://oldschool.runescape.wiki/w/File:The%20Leviathan.png",
+      "sourceSha256": "8679d5ffb73fb0f231e508ce347acc18e8c4bdaab5af0eba0776419bd11a0dab",
+      "sha256": "252c9f910527ac0590ba6876985b904052a2bdcde4601b2e65b20e823435bdb8",
+      "bytes": 63125
+    },
+    {
+      "boss": "The Whisperer",
+      "file": "2bae192efae38328ae4a.png",
+      "source": "https://oldschool.runescape.wiki/images/The_Whisperer.png?aedab",
+      "wikiFile": "https://oldschool.runescape.wiki/w/File:The%20Whisperer.png",
+      "sourceSha256": "9bba7f1e39fc2ac320d561d6f85d7fb39e5f8f7e733126404293217edf2c1b8d",
+      "sha256": "2bae192efae38328ae4ab77e68990a0f1d6793ae2dd01a8d239f77c134bf15fb",
+      "bytes": 28808
+    },
+    {
+      "boss": "Zulrah",
+      "file": "66637a5e754beb01d5c7.png",
+      "source": "https://oldschool.runescape.wiki/images/Zulrah_%28serpentine%29.png?29a54",
+      "wikiFile": "https://oldschool.runescape.wiki/w/File:Zulrah%20(serpentine).png",
+      "sourceSha256": "8fb7e05c5624dc53472b1cd51e2d335fad2c1d38ecf49882c366c1df58ab3b15",
+      "sha256": "66637a5e754beb01d5c7e43f596749341a4a8889b92c58e31e9f75039875d7ef",
+      "bytes": 66569
+    },
+    {
+      "boss": "Vorkath",
+      "file": "4d20142c2ae7ba589e14.png",
+      "source": "https://oldschool.runescape.wiki/images/Vorkath.png?1ce3f",
+      "wikiFile": "https://oldschool.runescape.wiki/w/File:Vorkath.png",
+      "sourceSha256": "449cdb1947ac9a53777b952b0a3cffc1de406f48d16fe6e67d0afd0e89fe10c3",
+      "sha256": "4d20142c2ae7ba589e1405e04b4cbdd4eda3b8faa8ef9d4281182c92ab595f96",
+      "bytes": 61107
+    },
+    {
+      "boss": "Phantom Muspah",
+      "file": "dc48dec6ecf74fd2e9a6.png",
+      "source": "https://oldschool.runescape.wiki/images/Phantom_Muspah_%28melee%29.png?4b33c",
+      "wikiFile": "https://oldschool.runescape.wiki/w/File:Phantom%20Muspah%20(melee).png",
+      "sourceSha256": "b5fd4897b5572b6265ff3aac2acf2893298113d7f115609b60f090d5f75feb5f",
+      "sha256": "dc48dec6ecf74fd2e9a63c5b47f5b2cc0c58e63789cef457497e29a95d61bbff",
+      "bytes": 79434
+    },
+    {
+      "boss": "Phosani's Nightmare",
+      "file": "f10f40eb40f8e5fcf8a3.png",
+      "source": "https://oldschool.runescape.wiki/images/The_Nightmare.png?0128a",
+      "wikiFile": "https://oldschool.runescape.wiki/w/File:The%20Nightmare.png",
+      "sourceSha256": "b24d7379b74b8ee469699175a1c76654e0f78e148e15092de8ab5c9cb0c5d60e",
+      "sha256": "f10f40eb40f8e5fcf8a3b06301ad3702ac1773c2b15c1784e39d3f0d4f1e92cd",
+      "bytes": 50656
+    },
+    {
+      "boss": "Amoxliatl",
+      "file": "fa8431b140e9a03c59ce.png",
+      "source": "https://oldschool.runescape.wiki/images/Amoxliatl.png?01b12",
+      "wikiFile": "https://oldschool.runescape.wiki/w/File:Amoxliatl.png",
+      "sourceSha256": "1eecc42e256dbaaeb0afc2e08045fc061243d6ed9522e5ce45d732d591144d63",
+      "sha256": "fa8431b140e9a03c59ce308bf3f65f11888900b94b775d78aa65c4fd04d3973e",
+      "bytes": 24776
+    },
+    {
+      "boss": "The Gauntlet",
+      "file": "abfddaa157ba9fb543c1.png",
+      "source": "https://oldschool.runescape.wiki/images/Crystalline_Hunllef.png?7737a",
+      "wikiFile": "https://oldschool.runescape.wiki/w/File:Crystalline%20Hunllef.png",
+      "sourceSha256": "a2df4f24af8f881f789c0c47155dcb709e4798f422872a6b69781dcd4f9a4fc0",
+      "sha256": "abfddaa157ba9fb543c10a9916661f96c6412db47d7e6c773bb36bc48d619daa",
+      "bytes": 66266
+    },
+    {
+      "boss": "Doom of Mokhaiotl",
+      "file": "346e8322650fe5e4d944.png",
+      "source": "https://oldschool.runescape.wiki/images/Doom_of_Mokhaiotl.png?e5edb",
+      "wikiFile": "https://oldschool.runescape.wiki/w/File:Doom%20of%20Mokhaiotl.png",
+      "sourceSha256": "9261b23b7532569c8a85cc426ab5c0dd025743332aa9fbcdcf39fe8e73d0fa94",
+      "sha256": "346e8322650fe5e4d944cec412fc3034f97364fec72d9371ad8d6c50f97682de",
+      "bytes": 72272
+    },
+    {
+      "boss": "Obor",
+      "file": "e19fcc0e553a26624465.png",
+      "source": "https://oldschool.runescape.wiki/images/Obor.png?08bc8",
+      "wikiFile": "https://oldschool.runescape.wiki/w/File:Obor.png",
+      "sourceSha256": "0c06df1cb67f8a8c558df4680014d7fa7a0c6cf8a63ff4b2c6b2b6d76f25a270",
+      "sha256": "e19fcc0e553a26624465b98fd6c543ebdc2967927a8e9c756fcaf1ea006b5022",
+      "bytes": 41736
+    },
+    {
+      "boss": "Bryophyta",
+      "file": "3e34365ab49e2725b942.png",
+      "source": "https://oldschool.runescape.wiki/images/Bryophyta.png?08bc8",
+      "wikiFile": "https://oldschool.runescape.wiki/w/File:Bryophyta.png",
+      "sourceSha256": "2b0c611a7fd175e3227c125d832c7e499d5533e0fd9e3fa1188c0b95540ff291",
+      "sha256": "3e34365ab49e2725b9421287bdd2889e9adc32b58771c42a07720cc0bcd1c4b0",
+      "bytes": 40587
+    },
+    {
+      "boss": "Moons of Peril",
+      "file": "67d4510e973cc6169696.png",
+      "source": "https://oldschool.runescape.wiki/images/Eclipse_Moon.png?c3e72",
+      "wikiFile": "https://oldschool.runescape.wiki/w/File:Eclipse%20Moon.png",
+      "sourceSha256": "4bc0f13062e9ae2bb8288f09825d3ae230e70cab5c4aa116dd938661b65ae1bc",
+      "sha256": "67d4510e973cc6169696844f9be63e4a72e5961f36c2642c0432962401da9f79",
+      "bytes": 27851
+    },
+    {
+      "boss": "Barrows Brothers",
+      "file": "ba71ff32b5ded437f093.png",
+      "source": "https://oldschool.runescape.wiki/images/Dharok_the_Wretched.png?33092",
+      "wikiFile": "https://oldschool.runescape.wiki/w/File:Dharok%20the%20Wretched.png",
+      "sourceSha256": "914a020633aa92f5b6e2655b024caba7427a1ae2081b994307639280aab9e507",
+      "sha256": "ba71ff32b5ded437f093eb3ad4fac164d33ffbcd948ca5b7faaf180cdbd3b898",
+      "bytes": 28592
+    },
+    {
+      "boss": "Brutus",
+      "file": "df2d868d6a986653e394.png",
+      "source": "https://oldschool.runescape.wiki/images/Brutus.png?eda9e",
+      "wikiFile": "https://oldschool.runescape.wiki/w/File:Brutus.png",
+      "sourceSha256": "e74d6e6cdb7285c962206b650dae3d646fecdfd6a52130e1c3a98f67868b2195",
+      "sha256": "df2d868d6a986653e394b455ad13da680a4829f83a413944f3826d9cc98ed8f7",
+      "bytes": 51076
+    },
+    {
+      "boss": "Deranged Archaeologist",
+      "file": "4f698363f6b6641e53c8.png",
+      "source": "https://oldschool.runescape.wiki/images/Deranged_archaeologist.png?32c7e",
+      "wikiFile": "https://oldschool.runescape.wiki/w/File:Deranged%20archaeologist.png",
+      "sourceSha256": "a5e3fc4936d9f93981d5b1b0372622a1ef3152362815b0a548d9e7ce8126039f",
+      "sha256": "4f698363f6b6641e53c889c8f8ae69b4a48f92e89c10f41be23bd7e3263d24c8",
+      "bytes": 28088
+    },
+    {
+      "boss": "Maggot King",
+      "file": "0d61b4a206917026b404.png",
+      "source": "https://oldschool.runescape.wiki/images/Maggot_King.png?a6790",
+      "wikiFile": "https://oldschool.runescape.wiki/w/File:Maggot%20King.png",
+      "sourceSha256": "be162b204966e54c2d64f5f08cb2b13535f69c4f12e8559f6700dc67e9815dc5",
+      "sha256": "0d61b4a206917026b4040c06f91b26297b377bf4adad0680ff9f419442eeef20",
+      "bytes": 80438
+    },
+    {
+      "boss": "Mad Angel",
+      "file": "4b9a7a5d9f2286a5e810.png",
+      "source": "https://oldschool.runescape.wiki/images/Mad_Angel.png?7fec1",
+      "wikiFile": "https://oldschool.runescape.wiki/w/File:Mad%20Angel.png",
+      "sourceSha256": "0acd5913a6ffd2172cd3f6ffaf2f1a744b218a9e2c5990f6a63803b33e48dd01",
+      "sha256": "4b9a7a5d9f2286a5e8103e008be9d893e19382a336c70975e40eb7480b175d90",
+      "bytes": 30803
+    },
+    {
+      "boss": "The Corrupted Gauntlet",
+      "file": "6a655b0b74b75f787a4c.png",
+      "source": "https://oldschool.runescape.wiki/images/Corrupted_Hunllef.png?0cd55",
+      "wikiFile": "https://oldschool.runescape.wiki/w/File:Corrupted%20Hunllef.png",
+      "sourceSha256": "8f505f95b2d911186b7d14f6bf4ded5489d5544388e32b1f0b6353808d7b2ba7",
+      "sha256": "6a655b0b74b75f787a4cc62eb94394696b83a7fdca0fd9d48181db77fb0d42b0",
+      "bytes": 61411
+    },
+    {
+      "boss": "Hespori",
+      "file": "7a53667b10a4e5dc7051.png",
+      "source": "https://oldschool.runescape.wiki/images/Hespori.png?83c72",
+      "wikiFile": "https://oldschool.runescape.wiki/w/File:Hespori.png",
+      "sourceSha256": "019aecc4c1e2816b07cf9a9648f2a6594bcdacacf148e787508af9323fc7fd19",
+      "sha256": "7a53667b10a4e5dc7051204eb0ce551e981780dfad9f0ff9a007a47eceb3deac",
+      "bytes": 33735
+    },
+    {
+      "boss": "Skotizo",
+      "file": "ddb1e4ac777332a46b17.png",
+      "source": "https://oldschool.runescape.wiki/images/Skotizo.png?dc8b8",
+      "wikiFile": "https://oldschool.runescape.wiki/w/File:Skotizo.png",
+      "sourceSha256": "2d07f3daaeba0ecd467eda018b2ea4271c71e188997d6da529bc658403f31dd9",
+      "sha256": "ddb1e4ac777332a46b175df0cc16c4707c21d9c329e6cbb148112264dd2364da",
+      "bytes": 73103
+    },
+    {
+      "boss": "The Mimic",
+      "file": "029a2f1e5e2eb83a3314.png",
+      "source": "https://oldschool.runescape.wiki/images/The_Mimic.png?b45f4",
+      "wikiFile": "https://oldschool.runescape.wiki/w/File:The%20Mimic.png",
+      "sourceSha256": "c827cdc4a00fe3a9804825d43d5a6f9ff1f03d6ee01db96d9ae7d01e8187bf9c",
+      "sha256": "029a2f1e5e2eb83a3314892a91b730d7cd837d71f50230eb0b2436838ef872cb",
+      "bytes": 59671
+    },
+    {
+      "boss": "TzTok-Jad",
+      "file": "26a71d4f8002b31d1dca.png",
+      "source": "https://oldschool.runescape.wiki/images/TzTok-Jad.png?df681",
+      "wikiFile": "https://oldschool.runescape.wiki/w/File:TzTok-Jad.png",
+      "sourceSha256": "fff10d60fb9549040b77cd4ee90092926017ae15943807fb991b0c2393c6025e",
+      "sha256": "26a71d4f8002b31d1dcaeae12b738425f1d1fe8a0cc1929b81b38e44a1fbb78e",
+      "bytes": 45215
+    },
+    {
+      "boss": "TzKal-Zuk",
+      "file": "9424ead3ec26d1636585.png",
+      "source": "https://oldschool.runescape.wiki/images/TzKal-Zuk.png?2d222",
+      "wikiFile": "https://oldschool.runescape.wiki/w/File:TzKal-Zuk.png",
+      "sourceSha256": "b6d9dedf5c09931c26a61b0cc091fc34d107a861217487ba2e821bcca2dda8cd",
+      "sha256": "9424ead3ec26d16365858f8bff5af48efaa7ea928335fbb0f2a2c2b7e9340571",
+      "bytes": 64876
+    },
+    {
+      "boss": "Sol Heredit",
+      "file": "e89b170f139601c4b688.png",
+      "source": "https://oldschool.runescape.wiki/images/Sol_Heredit.png?91250",
+      "wikiFile": "https://oldschool.runescape.wiki/w/File:Sol%20Heredit.png",
+      "sourceSha256": "487a823bf1a7c5bb2d9df275318fc4aca00e5b00d1380f661d4984eb93399ebe",
+      "sha256": "e89b170f139601c4b688f044d9762e920ec29cd79df473748db8379e3758ff28",
+      "bytes": 49812
+    },
+    {
+      "boss": "General Graardor",
+      "file": "62ec7d4b89fadb5a90de.png",
+      "source": "https://oldschool.runescape.wiki/images/General_Graardor.png?4dd90",
+      "wikiFile": "https://oldschool.runescape.wiki/w/File:General%20Graardor.png",
+      "sourceSha256": "3b429ff049920308a2d5c62bcc8e5eab49f76904e21c6022e7cf244e5b51dcad",
+      "sha256": "62ec7d4b89fadb5a90de5927c176127d98f804fdcf78944d125a0e4f519f50bb",
+      "bytes": 73965
+    },
+    {
+      "boss": "Commander Zilyana",
+      "file": "5e9b7c5a09c119adccfa.png",
+      "source": "https://oldschool.runescape.wiki/images/Commander_Zilyana.png?c5eaa",
+      "wikiFile": "https://oldschool.runescape.wiki/w/File:Commander%20Zilyana.png",
+      "sourceSha256": "13b11f9d6725e35a51c33efb7bcd833e70783965f5e45ff5c544760d5a952be2",
+      "sha256": "5e9b7c5a09c119adccfad0ca0ea0d9824c32c51c6631df6a88c6fc34cafa0379",
+      "bytes": 53502
+    },
+    {
+      "boss": "K'ril Tsutsaroth",
+      "file": "888844c80d80fc8e679d.png",
+      "source": "https://oldschool.runescape.wiki/images/K%27ril_Tsutsaroth.png?73bda",
+      "wikiFile": "https://oldschool.runescape.wiki/w/File:K'ril%20Tsutsaroth.png",
+      "sourceSha256": "bf32dfb7f6db7f8a95882ef22b7c2c52d4d18476dbf7ecef438db655b0996e1e",
+      "sha256": "888844c80d80fc8e679d9be1392f10a56836eda3e7cfdae254b20bfebe21e448",
+      "bytes": 62855
+    },
+    {
+      "boss": "Kree'arra",
+      "file": "60aee4383dfc01ff0d8d.png",
+      "source": "https://oldschool.runescape.wiki/images/Kree%27arra.png?ba75c",
+      "wikiFile": "https://oldschool.runescape.wiki/w/File:Kree'arra.png",
+      "sourceSha256": "0fb24214b88bdc7f1daf3a212728d08efa2d39009e3ad880044fb8395cbffad8",
+      "sha256": "60aee4383dfc01ff0d8d2c13e6a2a0a4b3e01c534d92dd33af52bd90ec7d8e74",
+      "bytes": 72086
+    },
+    {
+      "boss": "Corporeal Beast",
+      "file": "934a10d4e053e05287df.png",
+      "source": "https://oldschool.runescape.wiki/images/Corporeal_Beast.png?52ebb",
+      "wikiFile": "https://oldschool.runescape.wiki/w/File:Corporeal%20Beast.png",
+      "sourceSha256": "cd91be875ce6da9e57653080c6960cecf07e80a07e6ef2b5f7994c75693628e9",
+      "sha256": "934a10d4e053e05287df1aa12af1fbbe296257f76fefa9473c121653c77207a3",
+      "bytes": 98068
+    },
+    {
+      "boss": "Sarachnis",
+      "file": "f658ec4827f6d6d0d82b.png",
+      "source": "https://oldschool.runescape.wiki/images/Sarachnis.png?8f040",
+      "wikiFile": "https://oldschool.runescape.wiki/w/File:Sarachnis.png",
+      "sourceSha256": "68d44165d02b4dc6aef263bad1bb9d24b1efd83145a74d603e93183a120552bc",
+      "sha256": "f658ec4827f6d6d0d82b6f122bcc15b2c8750f913731ccd0e7800dea25d31218",
+      "bytes": 48344
+    },
+    {
+      "boss": "Giant Mole",
+      "file": "02dddcfba9eb591d4c56.png",
+      "source": "https://oldschool.runescape.wiki/images/Giant_Mole.png?3f58a",
+      "wikiFile": "https://oldschool.runescape.wiki/w/File:Giant%20Mole.png",
+      "sourceSha256": "988404369f3f55a9c470b85e30fb65bccb8de1d674f73227e1a6757207b93992",
+      "sha256": "02dddcfba9eb591d4c560b469eadf321b8bd2a011328324a560b2f578865cac2",
+      "bytes": 41743
+    },
+    {
+      "boss": "Kalphite Queen",
+      "file": "8c59fc70fc92360adbd6.png",
+      "source": "https://oldschool.runescape.wiki/images/Kalphite_Queen.png?a4955",
+      "wikiFile": "https://oldschool.runescape.wiki/w/File:Kalphite%20Queen.png",
+      "sourceSha256": "deb842b67c4142a304666e6ebe2b03ea4ffeee14643031492acc2fb4b1cb0786",
+      "sha256": "8c59fc70fc92360adbd6c8e356a3af0c8eba427ba4d0d33ee8cfd32a4835ff0c",
+      "bytes": 77399
+    },
+    {
+      "boss": "Dagannoth Kings",
+      "file": "5514f302628fc9c922f7.png",
+      "source": "https://oldschool.runescape.wiki/images/Dagannoth_Rex.png?a99a9",
+      "wikiFile": "https://oldschool.runescape.wiki/w/File:Dagannoth%20Rex.png",
+      "sourceSha256": "9074a5b56ff1f65038d449fe2ffe0268b5e1a76f4f4c2b352a2349593fe7a908",
+      "sha256": "5514f302628fc9c922f71055ba69d453a52fcabb32c617c26c3f58785a4972e1",
+      "bytes": 52293
+    },
+    {
+      "boss": "The Hueycoatl",
+      "file": "dd67e3e2897b41d8215c.png",
+      "source": "https://oldschool.runescape.wiki/images/The_Hueycoatl.png?7b216",
+      "wikiFile": "https://oldschool.runescape.wiki/w/File:The%20Hueycoatl.png",
+      "sourceSha256": "91b2d02418fbdf5a4fc9bdd8d0e1e832199090ff6825b6bd541420dc19c2628f",
+      "sha256": "dd67e3e2897b41d8215c0d73f29ff195ecb43a65514f5e54884c2f27504b0039",
+      "bytes": 83115
+    },
+    {
+      "boss": "The Nightmare",
+      "file": "f10f40eb40f8e5fcf8a3.png",
+      "source": "https://oldschool.runescape.wiki/images/The_Nightmare.png?0128a",
+      "wikiFile": "https://oldschool.runescape.wiki/w/File:The%20Nightmare.png",
+      "sourceSha256": "b24d7379b74b8ee469699175a1c76654e0f78e148e15092de8ab5c9cb0c5d60e",
+      "sha256": "f10f40eb40f8e5fcf8a3b06301ad3702ac1773c2b15c1784e39d3f0d4f1e92cd",
+      "bytes": 50656
+    },
+    {
+      "boss": "Yama",
+      "file": "2d536765d4b28a7eea6b.png",
+      "source": "https://oldschool.runescape.wiki/images/Yama.png?7653a",
+      "wikiFile": "https://oldschool.runescape.wiki/w/File:Yama.png",
+      "sourceSha256": "9ce40fcf75b55c31e768a307e1ddc97c4d943bcde48b92f4fe5a330fa849ee7a",
+      "sha256": "2d536765d4b28a7eea6bd7072190b80691007130f61b506b70e2d1dc147f63ae",
+      "bytes": 73789
+    },
+    {
+      "boss": "Scurrius",
+      "file": "be164f27fe234d97dace.png",
+      "source": "https://oldschool.runescape.wiki/images/Scurrius.png?e66a5",
+      "wikiFile": "https://oldschool.runescape.wiki/w/File:Scurrius.png",
+      "sourceSha256": "efdd46cd7f4abbab3a65f45732de161cc30285ead2daaed0808737a8a99de900",
+      "sha256": "be164f27fe234d97dacee686ff91ea3606d78b224f715bd3814878413a6165e0",
+      "bytes": 61219
+    },
+    {
+      "boss": "Wintertodt",
+      "file": "c9aa365a2c053e09c2da.png",
+      "source": "https://oldschool.runescape.wiki/images/Howling_Snow_Storm.gif?ec549",
+      "wikiFile": "https://oldschool.runescape.wiki/w/File:Howling%20Snow%20Storm.gif",
+      "sourceSha256": "29943630f61a6f62fef8b4690048497c2e54087ceb2f955a60512bce8ca21997",
+      "sha256": "c9aa365a2c053e09c2da3d5337951b1b7231ed62ae1d50a6c13942f41e3384e1",
+      "bytes": 50316
+    },
+    {
+      "boss": "Tempoross",
+      "file": "cd71fffd4f277fac17f8.png",
+      "source": "https://oldschool.runescape.wiki/images/Tempoross.png?12042",
+      "wikiFile": "https://oldschool.runescape.wiki/w/File:Tempoross.png",
+      "sourceSha256": "42ff983e5a2664e4efd0b9cbcfe0718c2d78b1ae672074021c63ade603d30564",
+      "sha256": "cd71fffd4f277fac17f843d75170059c6acb8adf05e605b8920c2c7d47a9e893",
+      "bytes": 68963
+    },
+    {
+      "boss": "Zalcano",
+      "file": "ebbf3c5627d9d099feaa.png",
+      "source": "https://oldschool.runescape.wiki/images/Zalcano.png?6244d",
+      "wikiFile": "https://oldschool.runescape.wiki/w/File:Zalcano.png",
+      "sourceSha256": "951048207d8ca115f0018530ee94c9e163c53f7d711801459ab5511705a7d2ee",
+      "sha256": "ebbf3c5627d9d099feaa573fd6cc08800bbae2749af3dc1568a42fc9ce88c1aa",
+      "bytes": 40940
+    },
+    {
+      "boss": "Royal Titans",
+      "file": "db214fa6bc03f4c3b48b.png",
+      "source": "https://oldschool.runescape.wiki/images/Branda_the_Fire_Queen.png?0687c",
+      "wikiFile": "https://oldschool.runescape.wiki/w/File:Branda%20the%20Fire%20Queen.png",
+      "sourceSha256": "d50d48974d57aa8b328a1f92b4cd6ca786d1b8d7e0f580de761c66350868a4b3",
+      "sha256": "db214fa6bc03f4c3b48b7dd1d412eb9aaefff87ecfda9f5ff48f32335f009b32",
+      "bytes": 41707
+    },
+    {
+      "boss": "Nex",
+      "file": "417ed1f5af3dab9ad877.png",
+      "source": "https://oldschool.runescape.wiki/images/Nex.png?2a1b3",
+      "wikiFile": "https://oldschool.runescape.wiki/w/File:Nex.png",
+      "sourceSha256": "b9c839b4580ed2ad31406261968bfdc0462b2e129b70930f9e5fc75d83905002",
+      "sha256": "417ed1f5af3dab9ad877d9dde93b0e3b5823261829c7a2a989e0bac6266b1ab8",
+      "bytes": 52128
+    },
+    {
+      "boss": "Abyssal Sire",
+      "file": "9d0a1b44c0eb1d39539b.png",
+      "source": "https://oldschool.runescape.wiki/images/Abyssal_Sire.png?d2205",
+      "wikiFile": "https://oldschool.runescape.wiki/w/File:Abyssal%20Sire.png",
+      "sourceSha256": "783fd74cfc8ce437ab86eefe11fce699456d19e834d6ced09e8655a9fdab19ea",
+      "sha256": "9d0a1b44c0eb1d39539b5464e6dc9cc99970d4ae9ef5b5dd65800608bbc1898b",
+      "bytes": 71229
+    },
+    {
+      "boss": "Alchemical Hydra",
+      "file": "2d1064e99ea1983808a0.png",
+      "source": "https://oldschool.runescape.wiki/images/Alchemical_Hydra_%28serpentine%29.png?925dd",
+      "wikiFile": "https://oldschool.runescape.wiki/w/File:Alchemical%20Hydra%20(serpentine).png",
+      "sourceSha256": "a01a6e5d435630a640a32b87f4bc863f0ae0942336ea41fb5ea5020524d131ee",
+      "sha256": "2d1064e99ea1983808a0d9a13c9e47095be9b8251282975ca95f90b592210984",
+      "bytes": 57312
+    },
+    {
+      "boss": "Araxxor",
+      "file": "6dc7c6ac684463765763.png",
+      "source": "https://oldschool.runescape.wiki/images/Araxxor.png?35d2e",
+      "wikiFile": "https://oldschool.runescape.wiki/w/File:Araxxor.png",
+      "sourceSha256": "fb31579419e847e0e88a3ef62722b7da471e3f7d49152780d459af963af7547d",
+      "sha256": "6dc7c6ac6844637657632e62903dd736aa519e5a9eeccd6cd049c2f0bf992841",
+      "bytes": 50850
+    },
+    {
+      "boss": "Cerberus",
+      "file": "67a987a9685e1c147d89.png",
+      "source": "https://oldschool.runescape.wiki/images/Cerberus.png?47f4c",
+      "wikiFile": "https://oldschool.runescape.wiki/w/File:Cerberus.png",
+      "sourceSha256": "4e9802319757a3201cbfcba3fdcd49f98d629b67ca1c9a59d098dd3634d6d2b9",
+      "sha256": "67a987a9685e1c147d89f3e0d453f679eec2f97969ceb387e02bb430e8a13c23",
+      "bytes": 53656
+    },
+    {
+      "boss": "Grotesque Guardians",
+      "file": "04652bca651b5abada90.png",
+      "source": "https://oldschool.runescape.wiki/images/Dusk.png?2d6f0",
+      "wikiFile": "https://oldschool.runescape.wiki/w/File:Dusk.png",
+      "sourceSha256": "b70da207c37bba3d9dbcaca9744395fc240d54550b9927e7445160cb3ab3a505",
+      "sha256": "04652bca651b5abada900cd365f3d760886a9cc6fa5b9f4c22981ebea89b8608",
+      "bytes": 37549
+    },
+    {
+      "boss": "Kraken",
+      "file": "0bd4c9b2aa6e12749137.png",
+      "source": "https://oldschool.runescape.wiki/images/Kraken.png?a4955",
+      "wikiFile": "https://oldschool.runescape.wiki/w/File:Kraken.png",
+      "sourceSha256": "ae0ccb6ddf9a157e6ae2bc682c7448ff2db6eda618ac74f0de4d2e82f68a695a",
+      "sha256": "0bd4c9b2aa6e12749137911fde48255463adccc5e8dc7700b6c98d1d4e97d9c9",
+      "bytes": 65297
+    },
+    {
+      "boss": "Thermonuclear Smoke Devil",
+      "file": "24e10f3f4760cb966e71.png",
+      "source": "https://oldschool.runescape.wiki/images/Thermonuclear_smoke_devil.png?de858",
+      "wikiFile": "https://oldschool.runescape.wiki/w/File:Thermonuclear%20smoke%20devil.png",
+      "sourceSha256": "46e5e7a549922ade877684495b3be4c4445bc241af07ec1966c15715617d49a2",
+      "sha256": "24e10f3f4760cb966e71581ed86bff0fc167f31fa3259c846274444bac18d33e",
+      "bytes": 46562
+    },
+    {
+      "boss": "Shellbane Gryphon",
+      "file": "7a674a1b28b97927a96b.png",
+      "source": "https://oldschool.runescape.wiki/images/Shellbane_gryphon.png?bc76e",
+      "wikiFile": "https://oldschool.runescape.wiki/w/File:Shellbane%20gryphon.png",
+      "sourceSha256": "382ced6fac6be57eaa74446525a79c57d5e0e19c8bf1cdf97d0d59388ebb9e58",
+      "sha256": "7a674a1b28b97927a96b5c7f257ab40b7ee9dbae3ebed0e7f7f0cb95cf04a542",
+      "bytes": 79669
+    },
+    {
+      "boss": "Artio",
+      "file": "b77c201d1fff7a78e010.png",
+      "source": "https://oldschool.runescape.wiki/images/Artio.png?bfba7",
+      "wikiFile": "https://oldschool.runescape.wiki/w/File:Artio.png",
+      "sourceSha256": "ec18ab54a1264a9068631f355ae9c279a4cf2cbee712bf76c8ffc7e5897e5479",
+      "sha256": "b77c201d1fff7a78e010428b245e20181b01750141db5ca783d7d5ecc2a566c4",
+      "bytes": 61379
+    },
+    {
+      "boss": "Callisto",
+      "file": "c74c6a9401a70e637aaf.png",
+      "source": "https://oldschool.runescape.wiki/images/Callisto.png?bfba7",
+      "wikiFile": "https://oldschool.runescape.wiki/w/File:Callisto.png",
+      "sourceSha256": "de028374c7b907ee95066b410184f02b8d43e53d3fb9b7de2512d4d37b7720a5",
+      "sha256": "c74c6a9401a70e637aaf61c9d9bbf63f7946beb13ce2ffc1a912aff0b09e20c7",
+      "bytes": 61789
+    },
+    {
+      "boss": "Calvar'ion",
+      "file": "68f8baca272274582995.png",
+      "source": "https://oldschool.runescape.wiki/images/Calvar%27ion.png?6268f",
+      "wikiFile": "https://oldschool.runescape.wiki/w/File:Calvar'ion.png",
+      "sourceSha256": "724589036586ef316c2a93a117aaafeefec668f1709eae57d5eefd0e93693d79",
+      "sha256": "68f8baca272274582995ed9effb0cba3d936ffe827ff45131adddcae8333c0d5",
+      "bytes": 49170
+    },
+    {
+      "boss": "Vet'ion",
+      "file": "68f8baca272274582995.png",
+      "source": "https://oldschool.runescape.wiki/images/Vet%27ion.png?8695f",
+      "wikiFile": "https://oldschool.runescape.wiki/w/File:Vet'ion.png",
+      "sourceSha256": "724589036586ef316c2a93a117aaafeefec668f1709eae57d5eefd0e93693d79",
+      "sha256": "68f8baca272274582995ed9effb0cba3d936ffe827ff45131adddcae8333c0d5",
+      "bytes": 49170
+    },
+    {
+      "boss": "Spindel",
+      "file": "d9a5b9f47011acdbc720.png",
+      "source": "https://oldschool.runescape.wiki/images/Spindel.png?2c818",
+      "wikiFile": "https://oldschool.runescape.wiki/w/File:Spindel.png",
+      "sourceSha256": "1d360ee500fcd257bfc904584b8ce3ac097dccbc129a589398340b4c8b3dd7dc",
+      "sha256": "d9a5b9f47011acdbc72052f897983634f3213d0482de600f4a98d8c75e64b332",
+      "bytes": 49768
+    },
+    {
+      "boss": "Venenatis",
+      "file": "d9a5b9f47011acdbc720.png",
+      "source": "https://oldschool.runescape.wiki/images/Venenatis.png?13693",
+      "wikiFile": "https://oldschool.runescape.wiki/w/File:Venenatis.png",
+      "sourceSha256": "1d360ee500fcd257bfc904584b8ce3ac097dccbc129a589398340b4c8b3dd7dc",
+      "sha256": "d9a5b9f47011acdbc72052f897983634f3213d0482de600f4a98d8c75e64b332",
+      "bytes": 49768
+    },
+    {
+      "boss": "Chaos Elemental",
+      "file": "29cc6e7193d944af9f47.png",
+      "source": "https://oldschool.runescape.wiki/images/Chaos_Elemental.png?c170c",
+      "wikiFile": "https://oldschool.runescape.wiki/w/File:Chaos%20Elemental.png",
+      "sourceSha256": "bed7e4f2d1ddb06ed3009038e8e13bf5dd3e4552c948ae831e107b2c8a4457d2",
+      "sha256": "29cc6e7193d944af9f4766011c2772dec738e87db590c47f2d84887c8011a4c8",
+      "bytes": 48260
+    },
+    {
+      "boss": "Chaos Fanatic",
+      "file": "ccfab37dbfcf26ed466f.png",
+      "source": "https://oldschool.runescape.wiki/images/Chaos_Fanatic.png?8871d",
+      "wikiFile": "https://oldschool.runescape.wiki/w/File:Chaos%20Fanatic.png",
+      "sourceSha256": "92f8e509dee2cfbb8429cfcbd371661e46c2886367e55bacbeec067f8aa8c510",
+      "sha256": "ccfab37dbfcf26ed466fa826235cfd9302cb58452263e70c0bf044d7de5d20f1",
+      "bytes": 41807
+    },
+    {
+      "boss": "Crazy Archaeologist",
+      "file": "3f7bfddf7076a7543d1d.png",
+      "source": "https://oldschool.runescape.wiki/images/Crazy_archaeologist.png?78fa1",
+      "wikiFile": "https://oldschool.runescape.wiki/w/File:Crazy%20archaeologist.png",
+      "sourceSha256": "5bfc14cdc57be7dab016f7ac4e3b730c516d5a9cdf6633218e0bbca2d6501378",
+      "sha256": "3f7bfddf7076a7543d1d3301a33cc881dac510a7a0231912587fbe8e1c37ef48",
+      "bytes": 25460
+    },
+    {
+      "boss": "King Black Dragon",
+      "file": "b2d4728085f43503bf40.png",
+      "source": "https://oldschool.runescape.wiki/images/King_Black_Dragon.png?d25f0",
+      "wikiFile": "https://oldschool.runescape.wiki/w/File:King%20Black%20Dragon.png",
+      "sourceSha256": "7ed6f535e5a1cdf5ee1465b919aa82a4d021cb04ffbafeacc8d0e3791528085b",
+      "sha256": "b2d4728085f43503bf40eabba3da7e2abfcb06398c244dd0c35ccb9c8be43de9",
+      "bytes": 64096
+    },
+    {
+      "boss": "Scorpia",
+      "file": "d6c1a3f8509f1c0cd87f.png",
+      "source": "https://oldschool.runescape.wiki/images/Scorpia.png?517c9",
+      "wikiFile": "https://oldschool.runescape.wiki/w/File:Scorpia.png",
+      "sourceSha256": "6336dca223d382fe375a6182af8d29e81da228dd1d0110cbc99e77d1f1e55c4c",
+      "sha256": "d6c1a3f8509f1c0cd87ff0b19142750a4593003dfaa31f80f87a1a811d919701",
+      "bytes": 61721
+    }
+  ]
+}

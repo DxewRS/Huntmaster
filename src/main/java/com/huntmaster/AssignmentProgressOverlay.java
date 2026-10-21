@@ -18,7 +18,7 @@ final class AssignmentProgressOverlay extends OverlayPanel
     @Override public Dimension render(Graphics2D graphics)
     {
         if(client.getGameState()!=GameState.LOGGED_IN)return null;
-        String text=state.overlay(System.currentTimeMillis(),config.showAssignmentProgressOverlay());
+        String text=state.overlay(System.currentTimeMillis(),config.showAssignmentProgressOverlay(),config.huntOverlayVisibility());
         if(text==null)return null;
         panelComponent.getChildren().add(LineComponent.builder().left(text).build());
         return super.render(graphics);

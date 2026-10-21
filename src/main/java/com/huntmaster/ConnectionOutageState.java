@@ -4,6 +4,7 @@ package com.huntmaster;
 final class ConnectionOutageState
 {
 	static final long GRACE_PERIOD_MS = 10 * 60 * 1000L;
+	static final long WARNING_DELAY_MS = 5 * 60 * 1000L;
 	private long startedAt;
 
 	void restore(long savedStartedAt, long now)
@@ -26,6 +27,12 @@ final class ConnectionOutageState
 		return startedAt != 0 && now - startedAt >= GRACE_PERIOD_MS;
 	}
 
+	int noticeStage(long now)
+	{
+		if (isPaused(now)) return 2;
+		return startedAt != 0 && now - startedAt >= WARNING_DELAY_MS ? 1 : 0;
+	}
+
 	long getStartedAt()
 	{
 		return startedAt;
@@ -34,5 +41,12 @@ final class ConnectionOutageState
 	void recover()
 	{
 		startedAt = 0;
+	}
+
+	boolean recover(long now)
+	{
+		boolean wasPaused = isPaused(now);
+		recover();
+		return wasPaused;
 	}
 }

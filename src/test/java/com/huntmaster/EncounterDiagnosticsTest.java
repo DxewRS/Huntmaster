@@ -7,6 +7,16 @@ import static org.junit.Assert.*;
 
 public class EncounterDiagnosticsTest
 {
+    @Test public void reportUsesCaptureStartRevision()
+    {
+        List<EncounterObservation.Snapshot> rows=new ArrayList<>();EncounterCapture capture=new EncounterCapture(rows::add);
+        BossDetector boss=new BossDetector(BossDefinition.betaCandidate("Nex","nex","Your Nex kill count is:"));
+        capture.revision("review-1");capture.primary(boss,"Example",null,100,1000,EncounterObservation.SignalKind.DEATH);
+        capture.revision("review-2");capture.advance(300);
+        com.google.gson.JsonObject report=EncounterReportCodec.encodeObservation(rows.get(0));
+        assertEquals("review-1",report.get("collectionPolicyRevision").getAsString());
+        assertEquals(ReleaseInfo.BUILD,report.get("pluginBuild").getAsString());
+    }
     @Test public void acceptsOnlyGameNotificationCategories()
     {
         assertTrue(CounterMessageEvidence.accepts(ChatMessageType.GAMEMESSAGE));

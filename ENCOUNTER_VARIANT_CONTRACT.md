@@ -1,6 +1,8 @@
 # Encounter-variant V1 release contract
 
-Plugin version 1.2, build `collector-v2-variants-1`; not yet published through Plugin Hub.
+Introduced in published plugin version 1.2, build `collector-v2-variants-1`,
+at `ccd4b442a82315da87ff57556ce8c847b0bf2ec5`. The local version 1.3 candidate,
+build `collector-v2-release-1`, preserves this protocol and is not yet published.
 Production bot protocol support is deployed. Natural Doom/Awakened gameplay validation
 remains outstanding; automated/source verification does not establish live timing.
 RuneLite observes; the bot decides. Doom Hunt credit remains disabled.
@@ -33,7 +35,7 @@ Optional top-level JSON string `encounterVariant`: exactly `NORMAL` or `AWAKENED
 Allowed only for the four canonical bosses above. Enum and serializer enforce bounded values
 and boss context. No arbitrary values, four booleans, new canonical names or raw NPC gameplay IDs.
 Existing schemaVersion 1, collectorVersion 2 and `/api/runelite/observations` route remain.
-Build marker: `collector-v2-variants-1`. Existing UUID, assignment UUID/null, RSN, timing,
+Current candidate build marker: `collector-v2-release-1` (published 1.2: `collector-v2-variants-1`). Existing UUID, assignment UUID/null, RSN, timing,
 capture status, detector type/version, policy revision and diagnostics remain.
 
 Dedicated-counter reports retain `detectorType: STANDARD_NPC` and existing signals:
@@ -89,10 +91,11 @@ through existing persistence/retries; diagnostic retention and credit-candidate 
 
 ## Diagnostics, privacy and validation
 
-Copy Diagnostics adds the latest plugin-defined canonical encounter and available variant.
-Doom adds completed level, extended yes/no and supported game-message source. Session reset
-clears the fields. No RSN/account name, raw chat, credentials, request bodies or NPC dump.
-Player chat is not collected. Sidebar/connection/setup behavior is unchanged.
+Structured reports retain the plugin-defined canonical encounter and available variant.
+Doom adds bounded completed level, extended yes/no and supported game-message source.
+The report envelope includes the player's own RSN; raw chat, credentials and NPC dumps
+are not collected. Version 1.3 retires the unused local status/clipboard display cache;
+structured encounter evidence, serialization and server credit decisions remain unchanged.
 
 Tests cover all four bosses in both modes; synchronization, pauses/resets, simultaneous totals,
 raw jumps, capture isolation, optional serialization, invalid values/bosses, capability expiry,

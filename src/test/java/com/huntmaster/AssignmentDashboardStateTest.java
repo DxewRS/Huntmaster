@@ -55,7 +55,7 @@ public class AssignmentDashboardStateTest
             assertTrue(p.getComponentCount()>5);
             java.util.List<String> buttons=new java.util.ArrayList<>();
             for(java.awt.Component child:p.getComponents()) if(child instanceof javax.swing.JButton)buttons.add(((javax.swing.JButton)child).getText());
-            assertEquals(java.util.Arrays.asList("Open Huntmaster in Discord","Copy diagnostics"),buttons);
+            assertEquals(java.util.Arrays.asList("Open Huntmaster in Discord"),buttons);
         });
     }
     @Test public void repeatedAcknowledgementDoesNotRestartOverlayTimer()
@@ -88,7 +88,7 @@ public class AssignmentDashboardStateTest
         javax.swing.SwingUtilities.invokeAndWait(()->{
             HuntmasterPanel panel=new HuntmasterPanel();panel.update(s.view());panel.onActivate();
             String text=HuntmasterPanelTest.visibleText(panel);
-            assertTrue(text.contains("TASK COMPLETED"));assertTrue(text.contains("You do not have a current Huntmaster assignment."));assertTrue(text.contains("15 pts"));
+            assertTrue(text.contains("HUNT COMPLETE"));assertTrue(text.contains("Request your next Hunt in Discord."));assertTrue(text.contains("15 points"));
         });
         String next=UUID.randomUUID().toString();s.accept(response(next,0,4),1400,null,0);assertNull(s.view().completed);assertNull(s.overlay(1400,true));
         s.accept(response(next,1,5),1500,next,1450);assertNotNull(s.overlay(1500,true));

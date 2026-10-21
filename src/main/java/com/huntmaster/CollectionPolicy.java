@@ -36,7 +36,9 @@ final class CollectionPolicy
             Map<String, Integer> parsed = new HashMap<>();
             for (Map.Entry<String, com.google.gson.JsonElement> entry : entries.entrySet())
             {
-                if (!java.util.Arrays.asList(SupportedEncounters.NAMES).contains(entry.getKey())) return;
+                // Future bot entries cannot select new client reads. Ignore them
+                // without discarding valid settings/capabilities for packaged bosses.
+                if (!java.util.Arrays.asList(SupportedEncounters.NAMES).contains(entry.getKey())) continue;
                 String raw = entry.getValue().getAsString();
                 if (!raw.matches("[0-9]{1,3}")) return;
                 int ticks = Integer.parseInt(raw);

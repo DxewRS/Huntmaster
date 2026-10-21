@@ -63,4 +63,41 @@ public class RecruitmentNotificationsTest
         assertFalse(settings.notifyNex()); assertFalse(settings.notifySoulWars());
         assertEquals(32, RecruitmentActivity.values().length);
     }
+
+    @Test public void preferenceEditsKeepCursorAndFilterThePendingResponse()
+    {
+        RecruitmentNotifications state=new RecruitmentNotifications();
+        state.complete(state.begin("Player",Set.of("toa"),1000),response("0:1000",null),1001);
+        RecruitmentNotifications.Poll pending=state.begin("Player",Set.of("toa"),6000);
+        state.preferences(Set.of("tfa"));
+        assertTrue(state.isCurrent(pending));
+        assertEquals("0:1000",pending.cursor);
+        java.util.List<String> messages=state.complete(pending,response("1:6000","1","toa","tfa"),6001);
+        assertEquals(1,messages.size());assertTrue(messages.get(0).contains("The Fractured Archive"));
+        assertFalse(messages.get(0).contains("Tombs of Amascut"));
+        pending=state.begin("Player",Set.of("tfa","toa"),11000);
+        assertEquals("1:6000",pending.cursor);
+        assertTrue(state.complete(pending,response("1:11000","1","tfa"),11001).isEmpty());
+    }
+
+    @Test public void everyConfiguredActivityIncludingFourthRaidCanDeliverAnAlert()
+    {
+        for(RecruitmentActivity activity:RecruitmentActivity.values())
+        {
+            RecruitmentNotifications state=new RecruitmentNotifications();
+            state.complete(state.begin("Player",Set.of(activity.id),1000),response("0:1000",null),1001);
+            java.util.List<String> messages=state.complete(state.begin("Player",Set.of(activity.id),6000),response("1:6000","1",activity.id),6001);
+            assertEquals(activity.id,1,messages.size());assertTrue(activity.id,messages.get(0).contains(activity.displayName));
+        }
+    }
+
+    @Test public void mutedAlertsCancelAnInFlightResponseAndResumeAtLiveEdge()
+    {
+        RecruitmentNotifications state=new RecruitmentNotifications();
+        state.complete(state.begin("Player",Set.of("tfa"),1000),response("0:1000",null),1001);
+        RecruitmentNotifications.Poll old=state.begin("Player",Set.of("tfa"),6000);
+        state.reset();
+        assertTrue(state.complete(old,response("1:6000","1","tfa"),6001).isEmpty());
+        assertTrue(state.complete(state.begin("Player",Set.of("tfa"),11000),response("2:11000","2","tfa"),11001).isEmpty());
+    }
 }

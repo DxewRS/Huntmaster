@@ -90,6 +90,10 @@ public class DoomLevelCountersTest
         message(10);counter(11,12,13);aggregate(12);capture.advance(30);EncounterObservation.Snapshot r=reports.get(0);
         JsonObject legacy=EncounterReportCodec.encodeObservation(r,true,false);assertFalse(legacy.has("doomCounters"));assertTrue(legacy.has("doomState"));assertEquals(1,legacy.getAsJsonObject("doomState").get("version").getAsInt());
         CollectionPolicy policy=new CollectionPolicy();JsonObject p=new Gson().fromJson("{\"version\":2,\"expiresAt\":10000,\"windows\":{},\"doomEvidenceVersion\":1}",JsonObject.class);policy.accept(p,100);assertFalse(policy.supportsDoomCounters(101));p.addProperty("doomCounterEvidenceVersion",1);policy.accept(p,100);assertTrue(policy.supportsDoomCounters(101));assertFalse(policy.supportsDoomCounters(10001));p.addProperty("doomCounterEvidenceVersion",2);policy.accept(p,100);assertFalse(policy.supportsDoomCounters(101));
-        CollectorDiagnostics diagnostics=new CollectorDiagnostics();diagnostics.queued(r);String copy=diagnostics.copy("collecting",1,"test");assertTrue(copy.contains(source().name()));assertTrue(copy.contains("message and level counter paired"));assertFalse(copy.contains("PrivateFixture"));assertFalse(copy.contains("duration:"));assertTrue(copy.length()<2000);diagnostics.reset();assertFalse(diagnostics.copy("collecting",0,"test").contains(source().name()));
+        JsonObject supported=EncounterReportCodec.encodeObservation(r,true,true);
+        JsonObject counter=supported.getAsJsonObject("doomCounters").getAsJsonArray("counters").get(0).getAsJsonObject();
+        assertEquals(source().name(),counter.get("source").getAsString());
+        assertEquals(12,counter.get("previous").getAsInt());assertEquals(13,counter.get("current").getAsInt());
+        assertTrue(supported.has("doomState"));assertFalse(supported.toString().contains("duration:"));
     }
 }

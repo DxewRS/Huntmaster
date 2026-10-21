@@ -105,21 +105,15 @@ public class EncounterVariantTest
         ImmediateReportDeliveryTest.invoke(h.plugin,"updateEncounterReports");assertEquals(2,h.calls.size());
         h.calls.get(1).respond("{\"success\":true,\"status\":\"stored\",\"reportId\":\""+id+"\"}");assertEquals(0,h.queue.snapshot().length);
     }
-    @Test public void copiedDiagnosticsAreBoundedPrivateAndReset()
-    {
-        CollectorDiagnostics diagnostics=new CollectorDiagnostics();diagnostics.queued(report(EncounterVariant.AWAKENED));
-        String text=diagnostics.copy("active",1,"default-v2");assertTrue(text.contains("Encounter: Vardorvis"));assertTrue(text.contains("Variant: AWAKENED"));
-        assertFalse(text.contains("PrivateAccount"));assertFalse(text.contains("signals"));
-        diagnostics.reset();text=diagnostics.copy("active",0,"default-v2");assertFalse(text.contains("Vardorvis"));assertFalse(text.contains("AWAKENED"));
-    }
-    @Test public void doomDiagnosticsKeepStructuredFactsWithoutChatOrAccount()
+    @Test public void doomReportsKeepStructuredFactsWithoutRawChat()
     {
         List<EncounterObservation.Snapshot> reports=new ArrayList<>();EncounterCapture capture=new EncounterCapture(reports::add);
         BossDetector doom=new BossDetector(BossDefinition.totalCounterCandidate(DoomCompletionEvidence.BOSS,"doom"));
         capture.doomCompletion(doom,"PrivateAccount",null,100,1000,DoomCompletionEvidence.parse(net.runelite.api.ChatMessageType.GAMEMESSAGE,"Delve level: 8+ (9) duration: 1:02.40"));
-        capture.advance(300);CollectorDiagnostics diagnostics=new CollectorDiagnostics();diagnostics.queued(reports.get(0));
-        String text=diagnostics.copy("active",1,"default-v2");assertTrue(text.contains("Completed Level: 9"));assertTrue(text.contains("Extended: yes"));
-        assertFalse(text.contains("PrivateAccount"));assertFalse(text.contains("duration:"));
+        capture.advance(300);JsonObject report=EncounterReportCodec.encodeObservation(reports.get(0));
+        assertEquals(9,report.getAsJsonObject("doomState").get("completedLevel").getAsInt());
+        assertTrue(report.getAsJsonObject("doomState").get("extended").getAsBoolean());
+        assertFalse(report.toString().contains("duration:"));
     }
     @Test public void realPluginSamplesDedicatedTotalsAndRetainsAwakenedIdentity()throws Exception
     {

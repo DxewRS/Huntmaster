@@ -1,6 +1,6 @@
 # Huntmaster data disclosure
 
-Optional report metadata includes the packaged plugin build identifier and the capture-policy revision used when an observation began. These are software/configuration identifiers, not device identifiers. The sidebar keeps only the latest report status in memory and clears it on logout, profile change or shutdown. **Copy diagnostics** places a support summary on your clipboard only when clicked: build/collector version, collection state, queue size, report UUID, outcome/reason and policy revisions. It excludes RSNs, credentials, raw chat and request payloads; it does not automatically send a support message.
+Optional report metadata includes the packaged plugin build identifier and the capture-policy revision used when an observation began. These are software/configuration identifiers, not device identifiers. Version 1.3 removes the sidebar Tracking Status and Copy diagnostics controls and their unused local display cache. It does not automatically copy or send a support message. The collapsed About Huntmaster settings section displays only the plugin version and build identifier.
 
 Enabling Huntmaster connects to the Bosscape Huntmaster Discord Bot at https://huntmaster.bosscape.com. Communication is part of the plugin; disable the plugin to stop requests and new collection. No game passwords, Discord tokens, or linking keys are required.
 
@@ -26,23 +26,25 @@ Bot verification-status requests send your RSN and a random warning-session ID. 
 
 The bot also queries public HiScores to corroborate credited totals and stores integrity receipts, baselines/published totals, review flags and staff decisions for audit. These records currently persist beyond encounter-report retention. This adds no extra plugin telemetry; ordinary progression does not wait for publication. High-value reward verification requires corroboration or recorded staff approval under a separate reward policy.
 
-Optional recruitment notifications poll `/api/runelite/recruitment` while logged in with at least one activity selected. Requests contain your RSN and an ephemeral feed cursor. Activity preferences stay in RuneLite configuration and are not sent to the bot. Responses contain only recent ping IDs and queue activity IDs, not leaders, member names or chat. No cursor or missed-message backlog is persisted locally. Turning all activity checkboxes off stops these extra requests. Existing assignment/report communication follows the plugin enable switch as before.
+Optional recruitment notifications poll `/api/runelite/recruitment` while logged in, the recruitment master switch is on and at least one activity is selected. Requests contain your RSN and an ephemeral feed cursor. Activity preferences stay in RuneLite configuration and are not sent to the bot. Responses contain only recent ping IDs and queue activity IDs, not leaders, member names or chat. No cursor or missed-message backlog is persisted locally. Turning the recruitment master switch or all activity checkboxes off stops these extra requests; selections remain saved. Other preference edits retain the live cursor. Existing assignment/report communication follows the plugin enable switch as before.
+
+The optional rank display reuses assignment requests and receives bot-confirmed earned points, rank thresholds and an allowlisted portrait filename. The latest confirmed rank is cached for one matching RSN in RuneLite configuration for up to 30 days and labelled when stale. Account changes clear the display; another RSN cannot restore that cache. Boss images and rank portraits are bundled in the plugin, so viewing them sends no Wiki or image-server requests. Overlay visibility and rendering optimizations are local presentation settings and add no telemetry.
 
 The sidebar displays server-authoritative assignment information. Use **Open Huntmaster in Discord** to manage assignments in Bosscape. This navigation only opens the existing Discord destination; it does not request, reroll or cancel an assignment. The sidebar adds no authorization credentials or additional routine polling.
 
 Version 1.2 reads eight fixed DT2 personal normal/awakened completion totals
 through the existing game-tick collector. A bounded optional NORMAL/AWAKENED variant may
 accompany observations for the four supported bosses when the bot supports the contract.
-Copy Diagnostics adds latest canonical encounter/variant and structured Doom completed
-level, extended yes/no and source. These session-only summaries exclude account names,
-raw chat, credentials and request bodies. No new polling, NPC dump or player chat collection.
+Structured reports retain the canonical encounter/variant and bounded Doom completed
+level, extended yes/no and source. Reports include your RSN as documented above,
+but exclude raw chat and credentials. No new polling, NPC dump or player chat collection.
 Existing evidence persistence and retention limits remain in place.
 ## Doom counter observations
 
 Optional Doom observations may include one allowlisted per-level counter
 source, nonnegative before/after totals and a bounded tick offset. The counter
 source identifies a fixed packaged RuneLite read, not player identity. New fields
-are sent only with the bot's explicit optional counter capability. Safe Copy
-Diagnostics shows the source/totals and message association, without RSN, raw chat,
-credentials or request bodies. Existing report limits, retention and retry rules
+are sent only with the bot's explicit optional counter capability. Structured
+counter fields retain the source/totals and message association; the report envelope
+includes your RSN. No raw chat or credentials are included. Existing report limits, retention and retry rules
 continue to apply; no new endpoint or periodic network request is introduced.

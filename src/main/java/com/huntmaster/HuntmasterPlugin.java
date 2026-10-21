@@ -46,6 +46,7 @@ import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.events.NpcLootReceived;
 import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.events.RuneScapeProfileChanged;
+import net.runelite.client.events.ProfileChanged;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 
@@ -54,7 +55,7 @@ import net.runelite.client.plugins.PluginDescriptor;
 		name = "Huntmaster",
 		internalName = "huntmaster",
 		legacyDataDirectory = "huntmaster",
-		description = "Exclusively for Bosscape's Huntmaster Discord Bot, used to verify bossing kills."
+		description = "Track Huntmaster boss Hunts, ranks and Discord LFG / Queue alerts for Bosscape."
 )
 public class HuntmasterPlugin extends Plugin
 {
@@ -83,7 +84,6 @@ public class HuntmasterPlugin extends Plugin
 	}
 	private void stopDashboard()
 	{
-        collectorDiagnostics.reset();publishedDiagnostics=null;
 		dashboardAccount=null; dashboard.reset(null,System.currentTimeMillis()); publishedDashboard=null;
 		javax.swing.SwingUtilities.invokeLater(() -> {
 			if(dashboardNavigation!=null)clientToolbar.removeNavigation(dashboardNavigation);
@@ -93,13 +93,25 @@ public class HuntmasterPlugin extends Plugin
 	}
 	private void dashboardAccount(String rsn)
 	{
-		if(!sameRsn(rsn,dashboardAccount)) { dashboardAccount=rsn;dashboard.reset(rsn,System.currentTimeMillis()); }
+		if(!sameRsn(rsn,dashboardAccount)) {
+			dashboardAccount=rsn;long now=System.currentTimeMillis();dashboard.reset(rsn,now);
+			try {String saved=configManager.getConfiguration(HUNTMASTER_CONFIG_GROUP,RANK_CACHE_KEY);
+				if(saved!=null&&saved.length()<=4096)dashboard.restoreRankCache(gson.fromJson(saved,JsonObject.class),now);
+			}catch(RuntimeException ignored){/* Optional local display cache never affects tracking. */}
+		}
+	}
+	private void saveRankCache()
+	{
+		try {JsonObject cached=dashboard.rankCache();if(cached==null)return;String encoded=gson.toJson(cached);
+			if(!encoded.equals(configManager.getConfiguration(HUNTMASTER_CONFIG_GROUP,RANK_CACHE_KEY)))configManager.setConfiguration(HUNTMASTER_CONFIG_GROUP,RANK_CACHE_KEY,encoded);
+		}catch(RuntimeException ignored){/* A cache failure must not change server evidence or connectivity. */}
 	}
 	private void publishDashboard()
 	{
-        publishDiagnostics();
+
 		if(client.getGameState()!=GameState.LOGGED_IN)dashboard.connection("Log in to RuneScape");
 		else if(membershipDenied)dashboard.connection("Register your RSN in Bosscape");
+		else if(collectionPolicy.updateRequired())dashboard.connection("Plugin update required through RuneLite");
 		else if(!healthReachable)dashboard.connection(outage.getStartedAt()==0?"Connecting...":"Huntmaster unavailable");
 		AssignmentDashboardState.View view=dashboard.view();
 		if(view==publishedDashboard)return;
@@ -109,25 +121,6 @@ public class HuntmasterPlugin extends Plugin
 	@Provides BosscapeSettings provideBosscapeSettings(ConfigManager manager)
 	{ return manager.getConfig(BosscapeSettings.class); }
 	private final ServerVerification serverVerification = new ServerVerification();
-    private final CollectorDiagnostics collectorDiagnostics=new CollectorDiagnostics();
-    private String publishedDiagnostics;
-    private void publishDiagnostics()
-    {
-        if(dashboardPanel==null)return;
-        String state=client.getGameState()!=GameState.LOGGED_IN?"Log in to collect evidence"
-            :membershipDenied?"Registration or membership required"
-            :!healthReachable?"Disconnected; saved reports retained"
-            :!registrationConfirmed||assignmentSyncRequired?"Checking registration and assignment"
-            :collectionPolicy.updateRequired()?"Plugin update required through RuneLite"
-            :!collectionPolicy.supported()?"Waiting for a compatible Huntmaster bot"
-            :reportQueue.collectionBackpressured()?"Collection paused: report queue full"
-            :trackingPaused?"Collection paused during connection recovery":"Evidence collection active";
-        String summary=collectorDiagnostics.summary();
-        String copy=collectorDiagnostics.copy(state,reportQueue.snapshot().length,collectionPolicy.revision(System.currentTimeMillis()));
-        if(copy.equals(publishedDiagnostics))return;
-        publishedDiagnostics=copy;long session=lifecycle;
-        javax.swing.SwingUtilities.invokeLater(()->{if(running&&lifecycle==session&&dashboardPanel!=null)dashboardPanel.diagnostics(state,summary,copy);});
-    }
     private final CollectionPolicy collectionPolicy = new CollectionPolicy();
     private String collectionSession = UUID.randomUUID().toString();
     private long nextCollectionHealthAt, collectionSignals, collectionCaptured, collectionDelivered;
@@ -180,15 +173,20 @@ public class HuntmasterPlugin extends Plugin
 	private int accountSnapshotLoginTick;
 	private boolean accountSnapshotInFlight;
 	private final RecruitmentNotifications recruitmentNotifications = new RecruitmentNotifications();
+	private final RecruitmentSelections recruitmentSelections = new RecruitmentSelections();
+
+    private Set<String> recruitmentChoices()
+    {
+        return recruitmentSelections.get(key -> configManager.getConfiguration(HUNTMASTER_CONFIG_GROUP, key));
+    }
 
 	private void updateRecruitmentNotifications()
 	{
 		Player player = client.getLocalPlayer();
-		if (!running || !encounterCommunicationEnabled() || client.getGameState() != GameState.LOGGED_IN || player == null)
+		if (!running || !encounterCommunicationEnabled() || client.getGameState() != GameState.LOGGED_IN || player == null
+            || !settings.enableRecruitmentAlerts())
 		{ recruitmentNotifications.reset(); return; }
-		Set<String> selected = new java.util.HashSet<>();
-		for (RecruitmentActivity activity : RecruitmentActivity.values())
-			if (Boolean.parseBoolean(configManager.getConfiguration(HUNTMASTER_CONFIG_GROUP, activity.configKey()))) selected.add(activity.id);
+		Set<String> selected = recruitmentChoices();
 		RecruitmentNotifications.Poll poll = recruitmentNotifications.begin(player.getName(), selected, System.currentTimeMillis());
 		if (poll == null) return;
 		HttpUrl.Builder url = HttpUrl.get(HUNTMASTER_API_BASE_URL + "/api/runelite/recruitment").newBuilder()
@@ -199,6 +197,8 @@ public class HuntmasterPlugin extends Plugin
 			JsonObject response = null;
 			try { if (status == 200 && body.length() <= 65536) response = gson.fromJson(body, JsonObject.class); }
 			catch (RuntimeException ignored) { /* A failed poll resets the live edge. */ }
+			if (!settings.enableRecruitmentAlerts()) { recruitmentNotifications.reset(); return; }
+			recruitmentNotifications.preferences(recruitmentChoices());
 			if (!recruitmentNotifications.isCurrent(poll)) return;
 			if (client.getGameState() != GameState.LOGGED_IN || client.getLocalPlayer() == null
 				|| !sameRsn(client.getLocalPlayer().getName(), poll.rsn)) { recruitmentNotifications.reset(); return; }
@@ -229,7 +229,8 @@ public class HuntmasterPlugin extends Plugin
 	private static final String HUNTMASTER_API_BASE_URL =
 			BotEndpoint.load(Boolean.getBoolean("huntmaster.developmentMode"));
 
-	private static final long HUNTMASTER_API_TIMEOUT_SECONDS = 5;
+	private static final long HUNTMASTER_API_TIMEOUT_SECONDS = 10;
+	private static final long HUNTMASTER_CONNECT_TIMEOUT_SECONDS = 5;
 
 	// ==================================================
 	// VERIFIED KC RETRY QUEUE
@@ -338,6 +339,7 @@ public class HuntmasterPlugin extends Plugin
 	private String assignmentNoticeRsn;
 	private String lastInvalidatedNoticeId;
 	private static final String ASSIGNMENT_CACHE_KEY = "assignmentCache";
+	private static final String RANK_CACHE_KEY = "rankDisplayCache";
 	private static final String UNBOUND_EVENTS_KEY = "unboundPendingKcEvents";
 	private final VerificationReliabilityState reliability = new VerificationReliabilityState();
 	private String reliabilityRsn;
@@ -414,6 +416,7 @@ public class HuntmasterPlugin extends Plugin
 	protected void startUp()
 	{
 		BossRegistry.validateDetectors(bossDetectors);
+		recruitmentSelections.invalidate();
 		recruitmentNotifications.reset();
 		serverVerification.reset();
 		nextHealthCheckAt = 0;
@@ -439,7 +442,7 @@ public class HuntmasterPlugin extends Plugin
 		httpClient = okHttpClient.newBuilder()
 				.followRedirects(false)
 				.followSslRedirects(false)
-				.connectTimeout(HUNTMASTER_API_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+				.connectTimeout(HUNTMASTER_CONNECT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
 				.readTimeout(HUNTMASTER_API_TIMEOUT_SECONDS, TimeUnit.SECONDS)
 				.callTimeout(HUNTMASTER_API_TIMEOUT_SECONDS, TimeUnit.SECONDS)
 				.build();
@@ -548,6 +551,7 @@ public class HuntmasterPlugin extends Plugin
 	{
 		// Finalize and persist captures, but never start delivery during shutdown.
 		running = false;
+		recruitmentSelections.invalidate();
 		recruitmentNotifications.reset();
 		if (reportsEnabled) diagnostic(() -> interruptEncounterCaptures(client.getTickCount(), EncounterObservation.Reason.SHUTDOWN));
 		saveEncounterReports();
@@ -658,9 +662,9 @@ public class HuntmasterPlugin extends Plugin
 public void onRuneScapeProfileChanged(
 		RuneScapeProfileChanged event)
 {
+	recruitmentSelections.invalidate();
 	resetDt2Observation();
 	resetDoomObservation();
-    collectorDiagnostics.reset();publishedDiagnostics=null;publishDiagnostics();
 	recruitmentNotifications.reset();
 	loadObservedBaselines();
 	for (BossDetector detector : observationDetectors())
@@ -1504,6 +1508,7 @@ public void onRuneScapeProfileChanged(
 		if (!encounterCommunicationEnabled()) return;
 		long session = lifecycle;
 		long generation = requestGeneration;
+		long requestStartedAt = System.nanoTime();
 		Call call = httpClient.newCall(pluginLink.authenticate(request, HUNTMASTER_API_BASE_URL));
 		activeCalls.add(call);
 		call.enqueue(new Callback()
@@ -1511,6 +1516,9 @@ public void onRuneScapeProfileChanged(
 			@Override
 			public void onFailure(Call failedCall, IOException error)
 			{
+				// Path/class/timing only: never log the RSN query, response or credentials.
+				log.debug("Huntmaster request failed: path={} error={} elapsedMs={}", request.url().encodedPath(),
+					error.getClass().getSimpleName(), TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - requestStartedAt));
 				finish(-1, getErrorMessage(error));
 			}
 
@@ -1519,10 +1527,14 @@ public void onRuneScapeProfileChanged(
 			{
 				try (Response closedResponse = response)
 				{
+					long elapsed = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - requestStartedAt);
+					if (response.code() >= 400 || elapsed >= 5000)
+						log.debug("Huntmaster request response: path={} status={} elapsedMs={}", request.url().encodedPath(), response.code(), elapsed);
 					finish(response.code(), HttpResponsePolicy.read(response.body()));
 				}
 				catch (IOException ex)
 				{
+					log.debug("Huntmaster response read failed: path={} error={}", request.url().encodedPath(), ex.getClass().getSimpleName());
 					finish(-1, getErrorMessage(ex));
 				}
 			}
@@ -1596,10 +1608,10 @@ public void onRuneScapeProfileChanged(
 			outageNoticeStage = 2;
 			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "Huntmaster RuneLite Plugin has been unable to reach the Huntmaster Discord Bot for 10 minutes. New kills are no longer being recorded. Previously saved kills are preserved. Avoid further Huntmaster kills until tracking resumes.", null);
 		}
-		else if (outage.getStartedAt() != 0 && outageNoticeStage == 0)
+		else if (outage.noticeStage(System.currentTimeMillis()) == 1 && outageNoticeStage == 0)
 		{
 			outageNoticeStage = 1;
-			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "Huntmaster RuneLite Plugin cannot reach the Huntmaster Discord Bot. Encounter evidence will be saved during the first 10 minutes of this outage for the bot to check after reconnection.", null);
+			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "Huntmaster has been disconnected for 5 minutes. Encounter evidence is still being saved. New tracking will pause if this outage reaches 10 minutes.", null);
 		}
 		if (recoveryNoticePending)
 		{
@@ -1667,11 +1679,10 @@ public void onRuneScapeProfileChanged(
 		{
 			refreshDetectorBaselines();
 		}
-		outage.recover();
+		recoveryNoticePending |= outage.recover(System.currentTimeMillis()) || trackingPaused;
 		configManager.unsetConfiguration(HUNTMASTER_CONFIG_GROUP, OUTAGE_STARTED_KEY);
 		trackingPaused = false;
 		outageNoticeStage = 0;
-		recoveryNoticePending = true;
 		log.debug("Huntmaster connection restored; saved queue drained and tracking resumed");
 		updateOutageTracking();
 	}
@@ -1723,8 +1734,11 @@ public void onRuneScapeProfileChanged(
 		String rsn = player.getName();
 		dashboardAccount(rsn);
 		assignmentInFlight = true;
-		HttpUrl url = HttpUrl.get(HUNTMASTER_API_BASE_URL + "/api/runelite/assignment")
-				.newBuilder().addQueryParameter("rsn", rsn).build();
+		boolean rankRequested = dashboard.needsRankRefresh(System.currentTimeMillis());
+		HttpUrl.Builder assignmentUrl = HttpUrl.get(HUNTMASTER_API_BASE_URL + "/api/runelite/assignment")
+				.newBuilder().addQueryParameter("rsn", rsn);
+		if (rankRequested) assignmentUrl.addQueryParameter("includeRank", "1");
+		HttpUrl url = assignmentUrl.build();
 		Request.Builder assignmentRequest=new Request.Builder().url(url).header("Cache-Control", "no-store");
 		enqueueRequest(assignmentRequest.build(), (status, body) ->
 		{
@@ -1745,7 +1759,8 @@ public void onRuneScapeProfileChanged(
 				String mode = state.get("status").getAsString();
                 collectionPolicy.accept(state.has("collector") ? state.getAsJsonObject("collector") : null, System.currentTimeMillis());
 				if (!"unregistered".equals(mode) && !"group_unsupported".equals(mode)
-					&& !dashboard.accept(state,System.currentTimeMillis(),null,0)) return;
+					&& !dashboard.accept(state,System.currentTimeMillis(),null,0,rankRequested)) return;
+				if(rankRequested)saveRankCache();
 				String newId = null;
 				String newBoss = null;
 				if ("solo".equals(mode) || "group".equals(mode))
@@ -1877,12 +1892,7 @@ public void onRuneScapeProfileChanged(
 		for (EncounterReportQueue.Entry entry : reportQueue.snapshot())
 		{
 			if (!entry.creditCandidate) continue;
-			try
-			{
-				JsonObject report = gson.fromJson(entry.payload, JsonObject.class);
-				if (sameRsn(assignmentRsn, report.get("rsn").getAsString())) return true;
-			}
-			catch (RuntimeException ex) { log.debug("Huntmaster malformed pending beta credit", ex); }
+			if (entry.delivery.belongsTo(assignmentRsn)) return true;
 		}
 		return false;
 	}
@@ -1900,7 +1910,6 @@ public void onRuneScapeProfileChanged(
 
 	private void resetLinkRequests()
 	{
-        collectorDiagnostics.reset();publishedDiagnostics=null;
         collectionPolicy.accept(null, 0); nextCollectionHealthAt = 0;
         collectionSession = UUID.randomUUID().toString();
         collectionSignals = collectionCaptured = collectionDelivered = collectionDeliveryFailures = collectionCaptureFailures = lastCollectionSignalAt = 0;
@@ -1918,7 +1927,7 @@ public void onRuneScapeProfileChanged(
 		assignmentInFlight = false;
 		assignmentSyncRequired = true;
 		registrationConfirmed = false;
-        publishDiagnostics();
+
 	}
 	private void rejectLink()
 	{
@@ -2065,10 +2074,6 @@ public void onRuneScapeProfileChanged(
 			log.debug("Huntmaster encounter report {} finalized: {} (queued={})", snapshot.reportId, snapshot.outcome, added);
 			if (added)
 			{
-                Player current=client.getLocalPlayer();
-                if(current!=null && sameRsn(current.getName(),snapshot.rsn) && sameRsn(assignmentRsn,snapshot.rsn))
-                    collectorDiagnostics.queued(snapshot);
-                publishDiagnostics();
 				saveEncounterReports();
 				// Use the same serialized queue, eligibility gates and retry path as the timer.
 				updateEncounterReports();
@@ -2123,29 +2128,19 @@ public void onRuneScapeProfileChanged(
 		if (!reportsEnabled || client.getGameState() != GameState.LOGGED_IN
 				|| !registrationConfirmed || assignmentSyncRequired || !healthReachable
 				|| reportPlayer == null || !sameRsn(reportPlayer.getName(), assignmentRsn)) return;
-		EncounterReportQueue.Entry entry = reportQueue.next(System.currentTimeMillis(), candidate ->
-		{
-			try { JsonObject queued = gson.fromJson(candidate.payload, JsonObject.class); return (!queued.has("collectorVersion") || collectionPolicy.supported())
-				&& (!queued.has("doomState") || collectionPolicy.supportsDoomEvidence(System.currentTimeMillis()))
-				&& (!queued.has("doomCounters") || collectionPolicy.supportsDoomCounters(System.currentTimeMillis()))
-				&& (!queued.has("encounterVariant") || collectionPolicy.supportsEncounterVariants(System.currentTimeMillis()))
-				&& sameRsn(reportPlayer.getName(), queued.get("rsn").getAsString()); }
-			catch (RuntimeException ex) { return true; } // Let the malformed-entry handler quarantine it.
-		});
+		long now = System.currentTimeMillis();
+		EncounterReportQueue.Entry entry = reportQueue.next(now,
+			candidate -> candidate.delivery.eligible(reportPlayer.getName(), collectionPolicy, now));
 		saveEncounterReports();
 		if (entry == null) return;
-		String reportRoute;
-		try
+		String reportRoute = entry.delivery.route;
+		if (reportRoute == null || !entry.delivery.readableAccount)
+		{ reportQueue.acknowledge(entry.id); saveEncounterReports(); return; }
+		if (!entry.delivery.belongsTo(reportPlayer.getName()))
 		{
-			JsonObject report = gson.fromJson(entry.payload, JsonObject.class);
-			reportRoute = EncounterReportCodec.deliveryRoute(report);
-			if (!sameRsn(reportPlayer.getName(), report.get("rsn").getAsString()))
-			{
-				entry.nextAttemptAt = System.currentTimeMillis() + 60000;
-				return;
-			}
+			entry.nextAttemptAt = System.currentTimeMillis() + 60000;
+			return;
 		}
-		catch (RuntimeException ex) { reportQueue.acknowledge(entry.id); saveEncounterReports(); return; }
 		entry.inFlight = true;
 		Request request = new Request.Builder().url(HUNTMASTER_API_BASE_URL + reportRoute)
 			.post(RequestBody.create(MediaType.parse("application/json"), entry.payload)).build();
@@ -2154,7 +2149,6 @@ public void onRuneScapeProfileChanged(
 			entry.inFlight = false;
 			boolean accepted = false;
 			boolean completed = false;
-            JsonObject decision=null;
 			try
 			{
 				if (status == 200)
@@ -2164,7 +2158,6 @@ public void onRuneScapeProfileChanged(
 					accepted = result.get("success").getAsBoolean() && entry.id.equals(result.get("reportId").getAsString())
 						&& ("stored".equals(resultStatus) || "duplicate".equals(resultStatus));
 					JsonObject credit = result.has("serverCredit") ? result.getAsJsonObject("serverCredit") : result.has("betaCredit") ? result.getAsJsonObject("betaCredit") : null;
-                    decision=credit;
 					completed = accepted && credit != null && credit.has("status") && "task_completed".equals(credit.get("status").getAsString());
 					if(accepted && result.has("assignmentState"))
 					{
@@ -2178,7 +2171,6 @@ public void onRuneScapeProfileChanged(
 			}
 			catch (RuntimeException ex) { log.debug("Huntmaster invalid diagnostic acknowledgement", ex); }
             if (accepted) collectionDelivered++; else collectionDeliveryFailures++;
-            collectorDiagnostics.response(entry.id,accepted,status,decision);publishDiagnostics();
 			// Preserve old-bot 404 compatibility; credit candidates remain durable.
 			if (accepted || status == 400 || status == 409 || status == 413) reportQueue.acknowledge(entry.id);
 			else
@@ -2202,11 +2194,24 @@ public void onRuneScapeProfileChanged(
 	}
 
 	@Subscribe
+	public void onProfileChanged(ProfileChanged event)
+	{
+		recruitmentSelections.invalidate();
+	}
+
+	@Subscribe
 	public void onConfigChanged(ConfigChanged event)
 	{
 		final long session = lifecycle;
-		if (HUNTMASTER_CONFIG_GROUP.equals(event.getGroup()) && event.getKey().startsWith("recruitment_"))
-			clientThread.invokeLater(() -> { if (running && lifecycle == session) recruitmentNotifications.reset(); });
+		if (HUNTMASTER_CONFIG_GROUP.equals(event.getGroup())
+            && (event.getKey().startsWith("recruitment_") || event.getKey().equals("enableRecruitmentAlerts")))
+		{
+			recruitmentSelections.invalidate();
+			clientThread.invokeLater(() -> { if (running && lifecycle == session) {
+                if (!settings.enableRecruitmentAlerts()) recruitmentNotifications.reset();
+                else recruitmentNotifications.preferences(recruitmentChoices());
+            } });
+		}
 		if (!"killcount".equals(event.getGroup())) return;
 		clientThread.invokeLater(() ->
 		{
