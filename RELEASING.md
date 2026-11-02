@@ -49,9 +49,10 @@ approves their disposal; source rollback must not replace newer player data.
 
 ## Paths the bot depends on
 
-The bot's offline tests and audit tools read these sibling-repository paths and
-parse some of them as text. Update the bot in step before moving or reformatting:
+The bot's offline tests and audit tools find this repository as a sibling folder
+named `Huntmaster Plugin`, read these paths and parse some of them as text. Update
+the bot in step before moving or reformatting:
 `src/test/resources/boss-communication-fixtures.json`, and in
 `src/main/java/com/huntmaster/`: `BossRegistry.java`, `BossCounterAliases.java`,
-`SpecialEncounterTotals.java` and `RecruitmentActivity.java`. The bot's
+`SpecialEncounterTotals.java` and `RecruitmentActivity.java`. The bot repository's
 `DOOM_COUNTER_BOT_CONTRACT.md` also names `DOOM_EVIDENCE.md`.

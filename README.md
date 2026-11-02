@@ -15,7 +15,7 @@ The currently published Plugin Hub release is version 1.3 at `5798fe2361bbe639f3
 
 ## Getting started
 
-Find Huntmaster through RuneLite's plugin search. Its gear/settings panel displays the Bosscape invite, community description and boss-verification purpose. Join [Bosscape Discord](https://discord.gg/Bosscape).
+Find Huntmaster through RuneLite's plugin search. Its gear/settings panel displays the Bosscape invite, community description, boss-verification purpose and a data-sharing notice. Join [Bosscape Discord](https://discord.gg/Bosscape).
 
 Register your RuneScape name with Huntmaster in Bosscape Discord. While you remain a member, the plugin automatically matches your logged-in RSN with that registration. No private linking key is needed. Discord membership must be confirmable before the bot accepts reports. RSN matching does not cryptographically prove sender/account ownership. A rejected registration shows one login-safe notice and retries; membership/Discord failures do not grant credit.
 
@@ -45,14 +45,16 @@ Login, reconnect, account/profile changes, disabling all activity selections and
 
 ## How detection works
 
-Each supported boss is declared in `BossRegistry` with one of four detector types (`BossDetectorType`):
+`BossRegistry` declares 16 bosses with dedicated detectors. Every other name in `SupportedEncounters` gets an evidence-only detector at runtime. Each detector has a type (`BossDetectorType`):
 
 | Type | Used for | Examples |
 | --- | --- | --- |
-| `STANDARD_NPC` | NPC death, KC increase and NPC loot | Vardorvis, Vorkath, Zulrah |
-| `COMPLETION` | Completions that do not behave like an NPC death and loot sequence | Barrows, Gauntlet, Moons of Peril |
-| `ACTIVITY` | Activity or minigame completions | Tempoross, Wintertodt, Zalcano |
-| `SPECIAL` | Encounters needing custom handling | TzTok-Jad, TzKal-Zuk, Sol Heredit |
+| `STANDARD_NPC` | NPC death, KC increase and NPC loot. Also the evidence-only default | Vardorvis, Vorkath, Zulrah |
+| `COMPLETION` | Completions read from a dedicated total rather than an NPC death and loot sequence | Gauntlet, Zalcano, TzTok-Jad, Sol Heredit |
+| `ACTIVITY` | Activity or minigame completions | Tempoross, Wintertodt |
+| `SPECIAL` | Reserved for custom handling; no boss uses it today | None |
+
+Barrows and Moons of Peril are evidence-only `STANDARD_NPC` entries that add reward-chest evidence through `ChestCompletionAdapter`.
 
 The collector-v2 implementation reports supported encounters independently of the assigned boss, including when there is no assignment. Signals for one encounter are correlated inside a bounded capture window, then finalized into one report. Reports retain the actual encounter and its own counter; the bot decides assignment matching, harder-to-lower substitutions, credit and rewards. Unassigned observations never award task progress. No player chat text is collected.
 
@@ -60,7 +62,7 @@ Counter notifications use complete encounter identities and reviewed aliases (`B
 
 Reports include killed-component flags for Barrows and Moons of Peril alongside chest evidence. The bot decides credit: all six brothers or all three Moons must be represented for that chest.
 
-Phosani's Nightmare has a 20-tick default capture window; regular Nightmare has at least 24 ticks. Assignment responses may extend windows for packaged bosses using expiring data (10–128 ticks, at most 64 entries, expiry within 24 hours). Invalid or expired settings fall back to packaged defaults, and unknown future entries are ignored. The server cannot supply code, endpoints, arbitrary varps, NPC aliases or chat patterns. Longer windows delay report finalization; immediate delivery after finalization is unchanged. Supported collection stays limited to the packaged boss identities, aliases and game-state sources, so unknown game content may need a plugin release.
+Phosani's Nightmare has a 20-tick default capture window; The Nightmare's default window is raised to at least 24 ticks. Assignment responses may extend windows for packaged bosses using expiring data (10–128 ticks, at most 64 entries, expiry within 24 hours). Invalid or expired settings fall back to packaged defaults, and unknown future entries are ignored. The server cannot supply code, endpoints, arbitrary varps, NPC aliases or chat patterns. Longer windows delay report finalization; immediate delivery after finalization is unchanged. Supported collection stays limited to the packaged boss identities, aliases and game-state sources, so unknown game content may need a plugin release.
 
 Exact-level Doom completion evidence and normal/awakened DT2 totals are reported as structured evidence. Delivery requires a bot advertising the matching optional capability, and older bots receive the existing payload. Doom assignments and Hunt credit remain disabled. See [Doom evidence](DOOM_EVIDENCE.md) and the [variant contract](ENCOUNTER_VARIANT_CONTRACT.md).
 
@@ -70,7 +72,7 @@ The bot independently checks published HiScores totals for accepted plugin credi
 
 Public builds use https://huntmaster.bosscape.com and never fall back to a player's localhost. Development `run` uses http://127.0.0.1:8787. Redirects are disabled and requests are restricted to the packaged origin. Connection establishment is bounded at five seconds, a complete request and response at ten seconds, and responses at 64 KiB.
 
-The plugin sends observations through `/api/runelite/observations` and reads bot decisions from `/api/runelite/verification-status`. It creates no locally verified KC requests. Saved legacy events keep their original delivery route and IDs. Collector-v2 reports wait in the queue until the bot advertises support in assignment responses.
+The plugin sends observations through `/api/runelite/observations` and reads bot decisions from `/api/runelite/verification-status`. It creates no locally verified KC requests. Saved legacy events keep their original delivery route (`/api/runelite/kc` or `/api/runelite/encounter-reports`) and IDs. Collector-v2 reports wait in the queue until the bot advertises support in assignment responses. Assignment, recruitment, account-state and collection-health requests use their own `/api/runelite/` routes, and service health uses `/health`.
 
 While logged in, healthy connections check service health every 30 seconds and assignments every five seconds. Logged-out clients make no routine requests. Verification decisions are polled every ten seconds only with an active assignment, and account snapshots are sampled at most once per minute. Collection health is sent at most once per minute while logged in, registered and connected to a compatible bot: session counters for captured signals/reports, acknowledged deliveries, capture/delivery errors, queue size and last captured observation time. These diagnose missing delivery without awarding credit.
 
@@ -88,7 +90,7 @@ The bot allows 60 seconds for delayed evidence before warning about an unconfirm
 
 The plugin sends your IP address through normal HTTPS traffic and submits your RSN, relevant account requirements, boss counters and bounded encounter evidence to a third-party Bosscape service not controlled or verified by RuneLite developers. The Plugin Hub descriptor carries the third-party installation warning; no separate sharing toggle or key flow is added. Unregistered accounts send a registration lookup, not accepted encounter/account reports. See [PRIVACY.md](PRIVACY.md).
 
-The plugin reports only the local account and only reads game state. It sends no game input and adds no menu or gameplay assistance. Java only, with no third-party dependencies, reflection, subprocesses or runtime downloads. Network calls use RuneLite's HTTP client asynchronously. All plugin filesystem access uses RuneLite's `net.runelite.client.util.Filepath` API, and packaged resources use classpath streams. This describes the code; approval rests with Plugin Hub review.
+The plugin reports only the local account and only reads game state. It sends no game input and adds no menu or gameplay assistance; its chat messages are local notices and recruitment alerts. Java only, with no third-party dependencies, reflection, subprocesses or runtime downloads. Network calls use RuneLite's HTTP client asynchronously. All plugin filesystem access uses RuneLite's `net.runelite.client.util.Filepath` API, and packaged resources use classpath streams. This describes the code; approval rests with Plugin Hub review.
 
 ## Development
 
@@ -106,8 +108,9 @@ Keep RuneLite's `latest.release` dependency current: run `./gradlew --refresh-de
 
 The Discord bot's offline tests read some files in this repository by their paths and parse them as text, including the boss communication fixture, so keep the paths listed in [release preparation](RELEASING.md) stable.
 
+The authoritative [Plugin Hub descriptor](https://github.com/runelite/plugin-hub/blob/master/plugins/huntmaster) identifies the published commit. This repository keeps no duplicate marker.
+
 ## Known limits
 
 - Natural Doom/Awakened gameplay validation remains outstanding. Protocol support and automated checks do not establish live timing.
 - Beta evidence support is not equivalent to strict verification for every boss.
-- The authoritative [Plugin Hub descriptor](https://github.com/runelite/plugin-hub/blob/master/plugins/huntmaster) identifies the published commit. This repository keeps no duplicate marker.
