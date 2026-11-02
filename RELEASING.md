@@ -39,8 +39,19 @@ become stale. After the owner authorizes commit/push and Hub submission, update
 that descriptor in a Plugin Hub fork to the exact reviewed plugin commit and
 open a separate update PR. Preserve the existing installation warning.
 Do not invent a future commit hash or treat a local build as Hub publication.
+Keep the Plugin Hub template's PR footer, including `Generated-by: Claude Code`
+when an AI tool prepared the change.
 
 Include only source, tests, canonical resources/provenance and release docs.
 Keep credentials, player data, generated logs, local backups and task evidence
 out of the plugin commit. Keep requested rollback copies until the owner
 approves their disposal; source rollback must not replace newer player data.
+
+## Paths the bot depends on
+
+The bot's offline tests and audit tools read these sibling-repository paths and
+parse some of them as text. Update the bot in step before moving or reformatting:
+`src/test/resources/boss-communication-fixtures.json`, and in
+`src/main/java/com/huntmaster/`: `BossRegistry.java`, `BossCounterAliases.java`,
+`SpecialEncounterTotals.java` and `RecruitmentActivity.java`. The bot's
+`DOOM_COUNTER_BOT_CONTRACT.md` also names `DOOM_EVIDENCE.md`.

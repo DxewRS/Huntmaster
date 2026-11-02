@@ -69,7 +69,7 @@ The message offset may exceed zero when the counter arrived first. A counterSign
 
 Before enabling Doom: prove real message formats and counter timing at 7/8/9+, add separately authorized conservative bot level/counter credit validation (compatible ingestion already exists), verify end-to-end duplicate/retry behavior, and publish the required plugin through Plugin Hub. Automated tests establish behavior with supplied inputs, not live game timing or reviewer approval.
 
-The pending DT2 variant contract and diagnostic additions are documented in ENCOUNTER_VARIANT_CONTRACT.md. This update does not enable Doom Hunt KC.
+The DT2 variant contract and diagnostic additions are documented in ENCOUNTER_VARIANT_CONTRACT.md. This update does not enable Doom Hunt KC.
 
 ## Per-level observation extension (published in version 1.2)
 

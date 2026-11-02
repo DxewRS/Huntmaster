@@ -26,6 +26,7 @@
   no kills are being recorded for this login.
 - PRIVACY.md now states RuneLite profile sync, backups, the lack of an age limit on
   undelivered kills, and that report evidence comes from the client.
+- README reorganized by topic; version history lives in these notes.
 
 ## 1.3 — published October 21, 2026 at `5798fe2361bbe639f36912ce7768e91915caa8fe`
 
@@ -62,3 +63,7 @@ Published at `ccd4b442a82315da87ff57556ce8c847b0bf2ec5`, build
 `collector-v2-variants-1`. It includes Doom per-level and DT2 normal/awakened
 evidence capabilities. Protocol support does not establish natural gameplay
 timing or enable Doom Hunt credit.
+
+## 1.1
+
+Added in-game group recruitment alerts from the Discord bot's LFG / Queue system.
