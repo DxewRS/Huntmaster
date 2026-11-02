@@ -110,7 +110,7 @@ public class HuntmasterPlugin extends Plugin
 	{
 
 		if(client.getGameState()!=GameState.LOGGED_IN)dashboard.connection("Log in to RuneScape");
-		else if(membershipDenied)dashboard.connection("Register your RSN in Bosscape");
+		else if(membershipDenied)dashboard.connection("Could not confirm registration. Retrying.");
 		else if(collectionPolicy.updateRequired())dashboard.connection("Plugin update required through RuneLite");
 		else if(!healthReachable)dashboard.connection(outage.getStartedAt()==0?"Connecting...":"Huntmaster unavailable");
 		AssignmentDashboardState.View view=dashboard.view();
@@ -236,6 +236,10 @@ public class HuntmasterPlugin extends Plugin
 	// VERIFIED KC RETRY QUEUE
 	// ==================================================
 
+	private static final int PENDING_KC_QUIET_ATTEMPTS = 20;
+	private static final long PENDING_KC_QUIET_AGE_MS = 24 * 60 * 60 * 1000L;
+	private static final long PENDING_KC_MAX_RETRY_DELAY_MS = 300_000L;
+
 	private static final long HUNTMASTER_RETRY_DELAY_MS =
 			5_000L;
 
@@ -324,6 +328,10 @@ public class HuntmasterPlugin extends Plugin
 	private volatile boolean running;
 	private boolean connectionInitialized;
 	private long nextHealthCheckAt;
+	private long retryAfterUntil;
+	private long nextRegistrationCheckAt;
+	private final RetryBackoff outageBackoff = new RetryBackoff(HUNTMASTER_RETRY_DELAY_MS, 60_000L);
+	private final RetryBackoff deniedBackoff = new RetryBackoff(HUNTMASTER_RETRY_DELAY_MS, 300_000L);
 	private boolean healthInFlight;
 	private boolean healthReachable;
 	private boolean trackingPaused;
@@ -358,6 +366,9 @@ public class HuntmasterPlugin extends Plugin
 	private static final String REPORT_QUEUE_KEY = "pendingEncounterReports";
 	private static final String REPORT_QUEUE_BACKUP_KEY = "damagedEncounterReports";
 	private boolean heldNoticeShown;
+	private int droppedReportNotice;
+	private boolean reportRestorePending;
+	private String damagedReports;
 
 	// ==================================================
 	// SESSION STATE
@@ -422,6 +433,11 @@ public class HuntmasterPlugin extends Plugin
 		recruitmentNotifications.reset();
 		serverVerification.reset();
 		nextHealthCheckAt = 0;
+		retryAfterUntil = 0;
+		nextRegistrationCheckAt = 0;
+		outageBackoff.reset();
+		deniedBackoff.reset();
+		reportRestorePending = true;
 		backlogNoticeShown = false;
 		membershipDenied = false;
 		accountSnapshotInFlight = false;
@@ -1021,8 +1037,7 @@ public void onRuneScapeProfileChanged(
 				}
 				catch (RuntimeException ex)
 				{
-					markConnectionFailure();
-					schedulePendingKcRetry(pendingEvent, "Invalid API acknowledgement");
+					pendingKcFailed(pendingEvent, "Invalid API acknowledgement");
 					return;
 				}
 				pendingKcEvents.remove(pendingEvent.eventId);
@@ -1060,10 +1075,23 @@ public void onRuneScapeProfileChanged(
 			}
 			else
 			{
-				markConnectionFailure();
-				schedulePendingKcRetry(pendingEvent, "HTTP " + status);
+				pendingKcFailed(pendingEvent, "HTTP " + status);
 			}
 		});
+	}
+
+	// A saved kill the bot keeps failing stays saved, but is no longer evidence of an outage.
+	private void pendingKcFailed(PendingKcEvent pendingEvent, String reason)
+	{
+		schedulePendingKcRetry(pendingEvent, reason);
+		if (pendingKcQuiet(pendingEvent)) recoverConnectionIfReady();
+		else markConnectionFailure();
+	}
+
+	private static boolean pendingKcQuiet(PendingKcEvent pendingEvent)
+	{
+		return pendingEvent.attempts >= PENDING_KC_QUIET_ATTEMPTS
+				|| System.currentTimeMillis() - pendingEvent.createdAt >= PENDING_KC_QUIET_AGE_MS;
 	}
 
 // ==================================================
@@ -1090,9 +1118,15 @@ public void onRuneScapeProfileChanged(
 			return;
 		}
 
+		long retryDelayMs =
+				Math.min(
+						PENDING_KC_MAX_RETRY_DELAY_MS,
+						HUNTMASTER_RETRY_DELAY_MS << Math.min(Math.max(pendingEvent.attempts - 1, 0), 6)
+				);
+
 		pendingEvent.nextAttemptAt =
 				System.currentTimeMillis()
-						+ HUNTMASTER_RETRY_DELAY_MS;
+						+ retryDelayMs;
 
 		long ageMs =
 				Math.max(
@@ -1108,7 +1142,7 @@ public void onRuneScapeProfileChanged(
 				pendingEvent.bossName,
 				pendingEvent.attempts,
 				ageMs,
-				HUNTMASTER_RETRY_DELAY_MS,
+				retryDelayMs,
 				reason
 		);
 	}
@@ -1464,9 +1498,10 @@ public void onRuneScapeProfileChanged(
 	{
 		if (!encounterCommunicationEnabled() || client.getGameState() != GameState.LOGGED_IN
 			|| client.getLocalPlayer() == null) return;
-		if (healthInFlight || System.currentTimeMillis() < nextHealthCheckAt)
+		long healthNow = System.currentTimeMillis();
+		if (healthInFlight || healthNow < nextHealthCheckAt || healthNow < retryAfterUntil)
 		{
-			if (healthReachable && !healthInFlight) refreshAssignment();
+			if (healthReachable && !healthInFlight && healthNow >= nextRegistrationCheckAt) refreshAssignment();
 			return;
 		}
 		healthInFlight = true;
@@ -1490,11 +1525,13 @@ public void onRuneScapeProfileChanged(
 			}
 			if (healthReachable)
 			{
-				refreshAssignment();
+				outageBackoff.reset();
+				if (System.currentTimeMillis() >= nextRegistrationCheckAt) refreshAssignment();
 				recoverConnectionIfReady();
 			}
 			else
 			{
+				nextHealthCheckAt = System.currentTimeMillis() + outageBackoff.next();
 				markConnectionFailure();
 			}
 		});
@@ -1533,6 +1570,8 @@ public void onRuneScapeProfileChanged(
 					long elapsed = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - requestStartedAt);
 					if (response.code() >= 400 || elapsed >= 5000)
 						log.debug("Huntmaster request response: path={} status={} elapsedMs={}", request.url().encodedPath(), response.code(), elapsed);
+					if (response.code() == 429 || response.code() == 503)
+						retryAfterMs = HttpResponsePolicy.retryAfterMs(response.header("Retry-After"), System.currentTimeMillis());
 					finish(response.code(), HttpResponsePolicy.read(response.body()));
 				}
 				catch (IOException ex)
@@ -1542,6 +1581,8 @@ public void onRuneScapeProfileChanged(
 				}
 			}
 
+			private long retryAfterMs;
+
 			private void finish(int status, String body)
 			{
 				activeCalls.remove(call);
@@ -1549,6 +1590,7 @@ public void onRuneScapeProfileChanged(
 				{
 					if (running && lifecycle == session && requestGeneration == generation && encounterCommunicationEnabled())
 					{
+						if (retryAfterMs > 0) retryAfterUntil = Math.max(retryAfterUntil, System.currentTimeMillis() + retryAfterMs);
 						if (rejectAuthentication && (status == 401 || status == 403)) { rejectLink(); return; }
 						completion.accept(status, body);
 					}
@@ -1559,7 +1601,8 @@ public void onRuneScapeProfileChanged(
 
 	private void markConnectionFailure()
 	{
-		nextHealthCheckAt = Math.min(nextHealthCheckAt, System.currentTimeMillis() + HUNTMASTER_RETRY_DELAY_MS);
+		// Only the first failure pulls the next check forward; after that the backoff decides.
+		if (healthReachable) nextHealthCheckAt = Math.min(nextHealthCheckAt, System.currentTimeMillis() + HUNTMASTER_RETRY_DELAY_MS);
 		assignmentSyncRequired = true;
 		healthReachable = false;
 		if (outage.fail(System.currentTimeMillis()))
@@ -1614,7 +1657,9 @@ public void onRuneScapeProfileChanged(
 		else if (outage.noticeStage(System.currentTimeMillis()) == 1 && outageNoticeStage == 0)
 		{
 			outageNoticeStage = 1;
-			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "Huntmaster has been disconnected for 5 minutes. Encounter evidence is still being saved. New tracking will pause if this outage reaches 10 minutes.", null);
+			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", registrationConfirmed
+				? "Huntmaster has been disconnected for 5 minutes. Encounter evidence is still being saved. New tracking will pause if this outage reaches 10 minutes."
+				: "Huntmaster has been disconnected for 5 minutes and tracking has not started for this login, so new kills are not being recorded. Saved reports are preserved.", null);
 		}
 		if (recoveryNoticePending)
 		{
@@ -1650,6 +1695,8 @@ public void onRuneScapeProfileChanged(
 		{
 			if (reportsEnabled) diagnostic(() -> interruptEncounterCaptures(client.getTickCount(), EncounterObservation.Reason.LOGOUT));
 			resetLinkRequests();
+			deniedBackoff.reset();
+			nextRegistrationCheckAt = 0;
 			logoutObserved = true;
 		}
 	}
@@ -1673,7 +1720,7 @@ public void onRuneScapeProfileChanged(
 	private void recoverConnectionIfReady()
 	{
 		// A healthy endpoint alone cannot reconcile undelivered events.
-		if (outage.getStartedAt() == 0 || !healthReachable || assignmentSyncRequired || pendingKcEvents.values().stream().anyMatch(entry -> sameRsn(assignmentRsn, entry.rsn))
+		if (outage.getStartedAt() == 0 || !healthReachable || assignmentSyncRequired || pendingKcEvents.values().stream().anyMatch(entry -> sameRsn(assignmentRsn, entry.rsn) && !pendingKcQuiet(entry))
 			|| hasPendingBetaCredit())
 		{
 			return;
@@ -1783,7 +1830,8 @@ public void onRuneScapeProfileChanged(
 				}
 				boolean changed = !sameRsn(rsn, assignmentRsn) || !java.util.Objects.equals(newId, assignmentId);
 				registrationConfirmed = !"unregistered".equals(mode);
-				if (registrationConfirmed) { membershipDenied = false; linkNoticeShown = false; }
+				if (registrationConfirmed) { membershipDenied = false; linkNoticeShown = false; deniedBackoff.reset(); nextRegistrationCheckAt = 0; }
+				else nextRegistrationCheckAt = System.currentTimeMillis() + deniedBackoff.next();
 				assignmentRsn = rsn;
 				if (changed && reportsEnabled) diagnostic(() -> interruptEncounterCaptures(client.getTickCount(), EncounterObservation.Reason.ASSIGNMENT_CHANGED));
 				if (!registrationConfirmed) clearEncounterCaptures();
@@ -1892,10 +1940,15 @@ public void onRuneScapeProfileChanged(
 
 	private boolean hasPendingBetaCredit()
 	{
+		long now = System.currentTimeMillis();
+		int quiet = 0;
 		for (EncounterReportQueue.Entry entry : reportQueue.snapshot())
 		{
-			if (!entry.creditCandidate || entry.heldAt != 0) continue;
-			if (entry.delivery.belongsTo(assignmentRsn)) return true;
+			// A report the client cannot send yet says nothing about the connection.
+			if (!entry.creditCandidate || entry.heldAt != 0 || !entry.delivery.belongsTo(assignmentRsn)
+				|| !entry.delivery.eligible(assignmentRsn, collectionPolicy, now)) continue;
+			// One or two reports failing alone are not an outage; many failing together are.
+			if (!EncounterReportQueue.quiet(entry) || ++quiet > EncounterReportQueue.MAX_QUIET_REPORTS) return true;
 		}
 		return false;
 	}
@@ -1937,6 +1990,7 @@ public void onRuneScapeProfileChanged(
 		membershipDenied = true;
 		// Membership rejection is retried through registration refresh; no credentials.
 		resetLinkRequests();
+		nextHealthCheckAt = System.currentTimeMillis() + deniedBackoff.next();
 		if (reportsEnabled) diagnostic(() -> interruptEncounterCaptures(client.getTickCount(), EncounterObservation.Reason.ASSIGNMENT_CHANGED));
 		clearEncounterCaptures();
 		saveEncounterReports();
@@ -1953,6 +2007,12 @@ public void onRuneScapeProfileChanged(
 	{
 		Player player = client.getLocalPlayer();
 		if (!running || player == null || client.getGameState() != GameState.LOGGED_IN) return;
+		if (droppedReportNotice > 0)
+		{
+			int dropped = droppedReportNotice;
+			droppedReportNotice = 0;
+			client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "Huntmaster stopped retrying " + dropped + " old saved kill report(s). A copy is kept in your RuneLite settings. Please ask in Bosscape Discord.", null);
+		}
 		int held = reportQueue.held(player.getName());
 		if (held == 0) heldNoticeShown = false;
 		if (held == 0 || heldNoticeShown) return;
@@ -2097,17 +2157,29 @@ public void onRuneScapeProfileChanged(
 	}
 	private void saveEncounterReports()
 	{
-		if (savedReportRevision == reportQueue.revision()) return;
+		// Saving before the restore has run would replace the saved queue with an empty one.
+		if (reportRestorePending || savedReportRevision == reportQueue.revision()) return;
 		try
 		{
+			// The copies go first: a failed backup leaves the saved queue as it was, to retry on the next save.
+			if (damagedReports != null) { backupReports(damagedReports); damagedReports = null; }
+			EncounterReportQueue.Entry[] dropped = reportQueue.dropped();
+			if (dropped.length > 0)
+			{
+				backupReports(gson.toJson(dropped));
+				reportQueue.forgetDropped(dropped.length);
+				droppedReportNotice += dropped.length;
+				for (EncounterReportQueue.Entry entry : dropped) log.warn("Huntmaster stopped retrying encounter report {}; a copy is in the local backup", entry.id);
+			}
 			configManager.setConfiguration(HUNTMASTER_CONFIG_GROUP, REPORT_QUEUE_KEY, gson.toJson(reportQueue.snapshot()));
 			savedReportRevision = reportQueue.revision();
 		}
-		catch (RuntimeException ex) { log.debug("Huntmaster could not persist diagnostic reports", ex); }
+		catch (RuntimeException ex) { log.warn("Huntmaster could not persist saved reports", ex); }
 	}
 	private void loadEncounterReports()
 	{
 		savedReportRevision = -1;
+		reportRestorePending = false;
 		reportQueue.clear();
 		boolean damaged = false;
 		// Restore saved delivery events regardless of the retired sharing preference.
@@ -2131,22 +2203,18 @@ public void onRuneScapeProfileChanged(
 			}
 		}
 		catch (RuntimeException ex) { damaged = true; log.debug("Huntmaster ignored malformed diagnostic queue", ex); }
-		if (damaged && !backupDamagedReports(saved)) return;
+		if (damaged) damagedReports = saved;
 		saveEncounterReports();
 	}
-	// Rewriting the queue would otherwise erase whatever could not be restored. The latest copy wins.
-	private boolean backupDamagedReports(String saved)
+	// Rewriting the queue would otherwise erase whatever could not be restored. Keeps the last three copies, newest first.
+	private void backupReports(String saved)
 	{
-		try
-		{
-			configManager.setConfiguration(HUNTMASTER_CONFIG_GROUP, REPORT_QUEUE_BACKUP_KEY, saved);
-			return true;
-		}
-		catch (RuntimeException ex)
-		{
-			log.warn("Huntmaster could not back up damaged saved reports", ex);
-			return false;
-		}
+		String latest = configManager.getConfiguration(HUNTMASTER_CONFIG_GROUP, REPORT_QUEUE_BACKUP_KEY);
+		if (saved.equals(latest)) return;
+		String previous = configManager.getConfiguration(HUNTMASTER_CONFIG_GROUP, REPORT_QUEUE_BACKUP_KEY + 2);
+		if (previous != null) configManager.setConfiguration(HUNTMASTER_CONFIG_GROUP, REPORT_QUEUE_BACKUP_KEY + 3, previous);
+		if (latest != null) configManager.setConfiguration(HUNTMASTER_CONFIG_GROUP, REPORT_QUEUE_BACKUP_KEY + 2, latest);
+		configManager.setConfiguration(HUNTMASTER_CONFIG_GROUP, REPORT_QUEUE_BACKUP_KEY, saved);
 	}
 	private void updateEncounterReports()
 	{
@@ -2216,13 +2284,15 @@ public void onRuneScapeProfileChanged(
 			if (accepted || expired || (!entry.creditCandidate && rejected)) reportQueue.acknowledge(entry.id);
 			else
 			{
-				entry.nextAttemptAt = System.currentTimeMillis() + 60_000L;
+				long failedAt = System.currentTimeMillis();
+				entry.nextAttemptAt = failedAt + 60_000L;
 				if (entry.creditCandidate)
 				{
 					// A report the bot keeps rejecting is not an outage and must not stall tracking.
 					if (entry.heldAt != 0 || !HttpResponsePolicy.isTemporary(status))
-						reportQueue.reject(entry, System.currentTimeMillis(), rejected);
-					if (entry.heldAt == 0) markConnectionFailure();
+						reportQueue.reject(entry, failedAt, rejected);
+					else reportQueue.temporaryFailure(entry, failedAt);
+					if (entry.heldAt == 0 && hasPendingBetaCredit()) markConnectionFailure();
 				}
 			}
 			if (completed) { assignmentSyncRequired = true; refreshAssignment(); }

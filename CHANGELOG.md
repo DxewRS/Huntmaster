@@ -3,13 +3,29 @@
 ## Unreleased
 
 - A kill report the bot keeps refusing no longer stalls tracking. After an
-  immediate rejection or three failed attempts it is held: saved, retried hourly
-  for up to 30 days, excluded from outage recovery and announced once in chat.
+  immediate rejection or three failed attempts it is held: saved, retried hourly,
+  excluded from outage recovery and backpressure, and announced once in chat.
   Outages and rate limits never hold a report.
+- A held report expires only after 30 days and 24 failed attempts. At most 2,000
+  reports or 8 MiB are held, oldest removed first. Removed reports are copied to
+  a backup setting, three copies kept, and the player is told once.
+- One report that fails alone with temporary errors stops counting as an outage
+  after three tries, stays saved and retries every few minutes, so kills behind
+  it still deliver. More than three failing together remain an outage.
+- HTTP 500, Cloudflare 52x and 530 now count as temporary, not as a refusal.
 - Reports the bot rejects are no longer deleted, except when it answers
   `report_expired`, which is final. Diagnostic-only reports keep their rules.
 - Startup keeps held state and kill reports dated ahead of the PC clock. A saved
   queue that cannot be fully read is copied to a backup setting before rewriting.
+  Retry timing survives a restart, and a save before the restore has run can no
+  longer replace the saved queue with an empty one.
+- Health checks back off with jitter during an outage and honour `Retry-After`
+  up to one minute. Refused registration checks back off up to five minutes and
+  a saved kill the bot keeps failing backs off and stops blocking recovery.
+- Clearer messages when registration cannot be confirmed and when an outage means
+  no kills are being recorded for this login.
+- PRIVACY.md now states RuneLite profile sync, backups, the lack of an age limit on
+  undelivered kills, and that report evidence comes from the client.
 
 ## 1.3 — published October 21, 2026 at `5798fe2361bbe639f36912ce7768e91915caa8fe`
 

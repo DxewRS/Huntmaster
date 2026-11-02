@@ -67,7 +67,7 @@ public class HuntmasterPanelTest
             for(int i=0;i<bosses.length;i++)states.add(new AssignmentDashboardState.View(task(bosses[i],i==1?"group":"solo",i==0?5:123,i==0?16:999,i==0?267:1234567),null,"Connected to Huntmaster",true));
             states.add(new AssignmentDashboardState.View(null,task("Vardorvis","solo",16,16,267),"Connected to Huntmaster",true));
             states.add(new AssignmentDashboardState.View(null,null,"Connected to Huntmaster",true));
-            for(String status:new String[]{"Connecting...","Huntmaster unavailable","Register your RSN in Bosscape","Log in to RuneScape"})states.add(new AssignmentDashboardState.View(null,null,status,false));
+            for(String status:new String[]{"Connecting...","Huntmaster unavailable","Could not confirm registration. Retrying.","Log in to RuneScape"})states.add(new AssignmentDashboardState.View(null,null,status,false));
             BufferedImage sheet=new BufferedImage(225*4,700*3,BufferedImage.TYPE_INT_RGB);Graphics2D g=sheet.createGraphics();
             g.setColor(ColorScheme.DARK_GRAY_COLOR);g.fillRect(0,0,sheet.getWidth(),sheet.getHeight());
             for(int i=0;i<states.size();i++){

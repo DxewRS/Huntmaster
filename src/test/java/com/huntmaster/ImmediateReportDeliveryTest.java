@@ -62,10 +62,11 @@ public class ImmediateReportDeliveryTest
         final EncounterReportQueue queue;
         final AssignmentDashboardState dashboard;
         GameState gameState=GameState.LOGGED_IN;
+        String playerName="Example";
         final String assignment=UUID.randomUUID().toString();
         Harness()throws Exception
         {
-            Player player=(Player)Proxy.newProxyInstance(Player.class.getClassLoader(),new Class[]{Player.class},(p,m,a)->m.getName().equals("getName")?"Example":null);
+            Player player=(Player)Proxy.newProxyInstance(Player.class.getClassLoader(),new Class[]{Player.class},(p,m,a)->m.getName().equals("getName")?playerName:null);
             Client client=(Client)Proxy.newProxyInstance(Client.class.getClassLoader(),new Class[]{Client.class},(p,m,a)->{if(m.getName().equals("addChatMessage"))chat.add((String)a[2]);return m.getName().equals("getLocalPlayer")?player:m.getName().equals("getGameState")?gameState:m.getName().equals("getTickCount")?125:null;});
             set(plugin,"client",client);set(plugin,"gson",new Gson());
             set(plugin,"clientThread",new ClientThread(){@Override public void invokeLater(Runnable r){r.run();}});

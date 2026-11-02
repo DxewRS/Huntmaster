@@ -91,22 +91,98 @@ public class EncounterReportQueueTest
 		assertTrue(q.revision() > revision);
 		assertNull(q.next(3000));
 		assertEquals("credit", q.next(3000 + EncounterReportQueue.HELD_RETRY_MS).id);
+		entry.rejections = EncounterReportQueue.HELD_EXPIRY_ATTEMPTS;
 		q.prune(3000 + EncounterReportQueue.HELD_RETENTION_MS - 1);
 		assertEquals(1, q.snapshot().length);
 		q.prune(3000 + EncounterReportQueue.HELD_RETENTION_MS);
 		assertEquals(0, q.snapshot().length);
+		assertSame(entry, q.dropped()[0]);
+		q.forgetDropped(1);
+		assertEquals(0, q.dropped().length);
+	}
+	@Test public void heldCreditThatWasBarelyRetriedOutlivesThirtyDays()
+	{
+		EncounterReportQueue q = new EncounterReportQueue();
+		assertTrue(q.add("credit", "{}", 1000, 1000, true));
+		EncounterReportQueue.Entry entry = q.snapshot()[0];
+		q.reject(entry, 2000, true);
+		entry.rejections = EncounterReportQueue.HELD_EXPIRY_ATTEMPTS - 1;
+		q.prune(2000 + 2 * EncounterReportQueue.HELD_RETENTION_MS);
+		assertEquals(1, q.snapshot().length);
+		assertEquals(0, q.dropped().length);
+	}
+	@Test public void heldReportsDoNotBlockCollectionAndAreCappedOldestFirst()
+	{
+		EncounterReportQueue q = new EncounterReportQueue();
+		int total = EncounterReportQueue.MAX_HELD_REPORTS + 1;
+		for (int i = 0; i < total; i++)
+		{
+			assertTrue(q.add("held" + i, "{}", 1000, 1000, true));
+			q.reject(q.snapshot()[i], 2000, true);
+		}
+		assertFalse(q.collectionBackpressured());
+		q.prune(3000);
+		int kept = EncounterReportQueue.MAX_HELD_REPORTS * 9 / 10;
+		assertEquals(kept, q.snapshot().length);
+		assertEquals("held" + (total - kept), q.snapshot()[0].id);
+		assertEquals(total - kept, q.dropped().length);
+		assertEquals("held0", q.dropped()[0].id);
+	}
+	@Test public void heldReportsNeverBlockCollectionEvenAboveTheBackpressureLimit()
+	{
+		EncounterReportQueue q = new EncounterReportQueue();
+		for (int i = 0; i < 1000; i++) assertTrue(q.add("saved" + i, "{}", 1000, 1000, true));
+		assertTrue(q.collectionBackpressured());
+		q.reject(q.snapshot()[0], 2000, true);
+		assertFalse(q.collectionBackpressured());
+	}
+	@Test public void quietReportsBackOffAndHeldReportsGoLast()
+	{
+		EncounterReportQueue q = new EncounterReportQueue();
+		assertTrue(q.add("held", "{}", 1000, 1000, true));
+		assertTrue(q.add("diagnostic", "{}", 1000, 1000));
+		assertTrue(q.add("fresh", "{}", 1000, 1000, true));
+		q.reject(q.snapshot()[0], 1000, true);
+		EncounterReportQueue.Entry held = q.snapshot()[0], diagnostic = q.snapshot()[1], fresh = q.snapshot()[2];
+		held.nextAttemptAt = 0;
+		assertSame(fresh, q.next(1000));
+		q.acknowledge("fresh");
+		assertSame(diagnostic, q.next(1000));
+		q.acknowledge("diagnostic");
+		assertSame(held, q.next(1000));
+		q.acknowledge("held");
+		assertTrue(q.add("poison", "{}", 1000, 1000, true));
+		EncounterReportQueue.Entry poison = q.snapshot()[0];
+		q.temporaryFailure(poison, 0);
+		q.temporaryFailure(poison, 0);
+		assertFalse(EncounterReportQueue.quiet(poison));
+		assertEquals(0, poison.nextAttemptAt);
+		long[] delays = {120_000L, 240_000L, EncounterReportQueue.QUIET_RETRY_MS, EncounterReportQueue.QUIET_RETRY_MS};
+		for (long delay : delays)
+		{
+			q.temporaryFailure(poison, 0);
+			assertTrue(EncounterReportQueue.quiet(poison));
+			assertEquals(delay, poison.nextAttemptAt);
+		}
+		assertEquals(0, poison.rejections);
+		assertEquals(0, poison.heldAt);
 	}
 	@Test public void restoreKeepsFutureCreditButNotFutureDiagnostics()
 	{
 		EncounterReportQueue.Entry saved = new EncounterReportQueue.Entry();
-		saved.id = "report"; saved.payload = "{}"; saved.createdAt = 5000; saved.rejections = 2; saved.heldAt = 900; saved.nextAttemptAt = 9000;
+		saved.id = "report"; saved.payload = "{}"; saved.createdAt = 5000; saved.rejections = 2; saved.heldAt = 900; saved.nextAttemptAt = 9000; saved.temporaryFailures = 4;
 		EncounterReportQueue q = new EncounterReportQueue();
 		assertFalse(q.restore(saved, 1000, false));
 		assertTrue(q.restore(saved, 1000, true));
 		EncounterReportQueue.Entry restored = q.snapshot()[0];
 		assertEquals(2, restored.rejections);
 		assertEquals(900, restored.heldAt);
-		assertEquals(0, restored.nextAttemptAt);
+		assertEquals(4, restored.temporaryFailures);
+		assertEquals(9000, restored.nextAttemptAt);
+		saved.nextAttemptAt = Long.MAX_VALUE;
+		EncounterReportQueue clockMoved = new EncounterReportQueue();
+		assertTrue(clockMoved.restore(saved, 1000, true));
+		assertEquals(1000 + EncounterReportQueue.HELD_RETRY_MS, clockMoved.snapshot()[0].nextAttemptAt);
 	}
 	@Test public void explicitlyClearingQueueRemovesEntries()
 	{

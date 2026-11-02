@@ -61,7 +61,7 @@ public class HeldReportDeliveryTest
         Harness h = harness();
         h.finalizeReport();
         EncounterReportQueue.Entry entry = h.queue.snapshot()[0];
-        h.calls.get(0).respond(500, "{}");
+        h.calls.get(0).respond(422, "{}");
         assertEquals(0, entry.heldAt);
         assertTrue(outage(h).getStartedAt() != 0);
         reconnect(h, entry);
@@ -84,7 +84,7 @@ public class HeldReportDeliveryTest
         h.finalizeReport();
         EncounterReportQueue.Entry entry = h.queue.snapshot()[0];
         int call = 0;
-        for (int status : new int[]{408, 429, 502, 503, 504})
+        for (int status : new int[]{408, 429, 500, 502, 503, 504, 520, 530})
         {
             h.calls.get(call++).respond(status, "{}");
             assertEquals(0, entry.rejections);
@@ -93,8 +93,97 @@ public class HeldReportDeliveryTest
         }
         h.calls.get(call).callback.onFailure(h.calls.get(call), new IOException("disconnected"));
         assertEquals(0, entry.heldAt);
-        assertTrue(outage(h).getStartedAt() != 0);
+        assertEquals(1, h.queue.snapshot().length);
+    }
+
+    @Test public void oneReportFailingAloneStopsBlockingAndFreshKillsStillDeliver() throws Exception
+    {
+        Harness h = harness();
+        h.finalizeReport();
+        EncounterReportQueue.Entry poison = h.queue.snapshot()[0];
+        for (int call = 0; call < 2; call++)
+        {
+            h.calls.get(call).respond(503, "{}");
+            assertTrue(outage(h).getStartedAt() != 0);
+            assertTrue(pendingCredit(h));
+            reconnect(h, poison);
+            invoke(h.plugin, "updateEncounterReports");
+        }
+        h.calls.get(2).respond(503, "{}");
+        assertEquals(0, poison.heldAt);
+        assertFalse(pendingCredit(h));
+        assertTrue(poison.nextAttemptAt > System.currentTimeMillis() + 60_000L);
+        invoke(h.plugin, "recoverConnectionIfReady");
+        assertEquals(0, outage(h).getStartedAt());
+        h.finalizeReport();
+        EncounterReportQueue.Entry fresh = h.queue.snapshot()[1];
+        assertTrue(fresh.inFlight);
+        h.calls.get(3).respond(h.ack(fresh.id));
+        assertEquals(1, h.queue.snapshot().length);
+        assertSame(poison, h.queue.snapshot()[0]);
+    }
+
+    @Test public void manyReportsFailingTogetherStillBlockAsAnOutage() throws Exception
+    {
+        Harness h = harness();
+        set(h.plugin, "healthReachable", false);
+        for (int i = 0; i < EncounterReportQueue.MAX_QUIET_REPORTS; i++) h.finalizeReport();
+        for (EncounterReportQueue.Entry entry : h.queue.snapshot()) entry.temporaryFailures = EncounterReportQueue.QUIET_AFTER_FAILURES;
+        assertFalse(pendingCredit(h));
+        h.finalizeReport();
+        h.queue.snapshot()[EncounterReportQueue.MAX_QUIET_REPORTS].temporaryFailures = EncounterReportQueue.QUIET_AFTER_FAILURES;
         assertTrue(pendingCredit(h));
+    }
+
+    @Test public void reportsTheClientCannotSendYetDoNotExtendAnOutage() throws Exception
+    {
+        Harness h = harness();
+        set(h.plugin, "healthReachable", false);
+        h.finalizeReport();
+        assertTrue(pendingCredit(h));
+        ((CollectionPolicy) field("collectionPolicy").get(h.plugin)).accept(null, 0);
+        assertFalse(pendingCredit(h));
+    }
+
+    @Test public void lastingDamageKeepsBackupsAndOldestCopyRotatesOut() throws Exception
+    {
+        Harness h = harness();
+        for (String damaged : new String[]{"[{a", "[{b", "[{c", "[{d"})
+        {
+            config(h).setConfiguration(GROUP, QUEUE, damaged);
+            invoke(h.plugin, "loadEncounterReports");
+        }
+        assertEquals("[{d", config(h).getConfiguration(GROUP, BACKUP));
+        assertEquals("[{c", config(h).getConfiguration(GROUP, BACKUP + 2));
+        assertEquals("[{b", config(h).getConfiguration(GROUP, BACKUP + 3));
+    }
+
+    @Test public void droppedReportsAreBackedUpBeforeTheQueueForgetsThemAndPlayerIsTold() throws Exception
+    {
+        Harness h = harness();
+        h.finalizeReport();
+        EncounterReportQueue.Entry entry = h.queue.snapshot()[0];
+        h.calls.get(0).respond(400, "{}");
+        entry.heldAt = System.currentTimeMillis() - EncounterReportQueue.HELD_RETENTION_MS;
+        entry.rejections = EncounterReportQueue.HELD_EXPIRY_ATTEMPTS;
+        h.queue.prune(System.currentTimeMillis());
+        assertEquals(0, h.queue.snapshot().length);
+        invoke(h.plugin, "saveEncounterReports");
+        assertEquals(0, h.queue.dropped().length);
+        assertTrue(config(h).getConfiguration(GROUP, BACKUP).contains(entry.id));
+        assertFalse(config(h).getConfiguration(GROUP, QUEUE).contains(entry.id));
+        invoke(h.plugin, "showHeldReportNotice");
+        assertTrue(h.chat.stream().anyMatch(line -> line.contains("stopped retrying 1 old")));
+    }
+
+    @Test public void savingBeforeTheRestoreCannotEraseTheSavedQueue() throws Exception
+    {
+        Harness h = harness();
+        config(h).setConfiguration(GROUP, QUEUE, "[saved]");
+        set(h.plugin, "reportRestorePending", true);
+        h.finalizeReport();
+        invoke(h.plugin, "saveEncounterReports");
+        assertEquals("[saved]", config(h).getConfiguration(GROUP, QUEUE));
     }
 
     @Test public void heldReportStaysSlowDuringOutagesAndClearsWhenAccepted() throws Exception

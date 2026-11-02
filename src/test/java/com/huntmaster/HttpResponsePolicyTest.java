@@ -13,8 +13,17 @@ public class HttpResponsePolicyTest
   for(int status:new int[]{400,404,409,413,422})assertTrue(HttpResponsePolicy.isPermanentRejection(status));
  }
  @Test public void onlyOutagesAndRateLimitsSayNothingAboutTheReport(){
-  for(int status:new int[]{-1,408,429,502,503,504})assertTrue(HttpResponsePolicy.isTemporary(status));
-  for(int status:new int[]{200,400,404,409,413,422,500})assertFalse(HttpResponsePolicy.isTemporary(status));
+  for(int status:new int[]{-1,408,429,500,502,503,504,520,522,530})assertTrue(HttpResponsePolicy.isTemporary(status));
+  for(int status:new int[]{200,400,404,409,413,422})assertFalse(HttpResponsePolicy.isTemporary(status));
+ }
+ @Test public void retryAfterIsReadAndCapped(){
+  assertEquals(0,HttpResponsePolicy.retryAfterMs(null,0));
+  assertEquals(0,HttpResponsePolicy.retryAfterMs("soon",0));
+  assertEquals(0,HttpResponsePolicy.retryAfterMs("-5",0));
+  assertEquals(30_000L,HttpResponsePolicy.retryAfterMs(" 30 ",0));
+  assertEquals(HttpResponsePolicy.MAX_RETRY_AFTER_MS,HttpResponsePolicy.retryAfterMs("86400",0));
+  assertEquals(15_000L,HttpResponsePolicy.retryAfterMs("Thu, 01 Jan 1970 00:00:15 GMT",0));
+  assertEquals(0,HttpResponsePolicy.retryAfterMs("Thu, 01 Jan 1970 00:00:15 GMT",60_000L));
  }
  @Test public void smallUtf8ResponsesAreRead() throws Exception {
   try(ResponseBody body=ResponseBody.create(MediaType.parse("application/json"),"{\"name\":\"\u00e9\"}")){
