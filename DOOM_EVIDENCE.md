@@ -1,6 +1,6 @@
 # Doom completion and counter evidence V1
 
-Plugin version 1.2 at published commit `ccd4b442a82315da87ff57556ce8c847b0bf2ec5` introduced this evidence extension. The local version 1.3 candidate, build `collector-v2-release-1`, preserves it and is not yet published. Production bot support is deployed; natural Doom/Awakened gameplay validation remains outstanding. Doom assignments remain disabled. Future bot policy is one potential KC for each successfully completed level >=8. The plugin reports lower levels too and makes no credit decision.
+Plugin version 1.2 at published commit `ccd4b442a82315da87ff57556ce8c847b0bf2ec5` introduced this evidence extension. Published version 1.3, build `collector-v2-release-1`, preserves it. Production bot support is deployed; natural Doom/Awakened gameplay validation remains outstanding. Doom assignments remain disabled. Future bot policy is one potential KC for each successfully completed level >=8. The plugin reports lower levels too and makes no credit decision.
 
 ## Capture and schema
 

@@ -1,6 +1,6 @@
 # Huntmaster release notes
 
-## 1.3 — release candidate, not yet published
+## 1.3 — published October 21, 2026 at `5798fe2361bbe639f36912ce7768e91915caa8fe`
 
 - Current Hunt sidebar with bundled RuneScape boss renders, confirmed-KC progress,
   remaining kills, reward and completion state. No runtime Wiki image requests.
@@ -29,9 +29,9 @@
 No new CI, desktop notifications, timed mute, recent-Hunt history or Groups
 Recruiting view is included. Doom assignment/credit availability is unchanged.
 
-## Published baseline — 1.2
+## 1.2
 
-Plugin Hub currently points to `ccd4b442a82315da87ff57556ce8c847b0bf2ec5`, build
+Published at `ccd4b442a82315da87ff57556ce8c847b0bf2ec5`, build
 `collector-v2-variants-1`. It includes Doom per-level and DT2 normal/awakened
 evidence capabilities. Protocol support does not establish natural gameplay
 timing or enable Doom Hunt credit.

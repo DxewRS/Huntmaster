@@ -1,10 +1,10 @@
 # Huntmaster RuneLite Plugin
 
-Huntmaster supplies own-account observations and boss encounter evidence to the Bosscape Huntmaster Discord Bot. The bot manages assignments, eligibility decisions, points and ranks. The currently published Plugin Hub baseline is version 1.2 at `ccd4b442a82315da87ff57556ce8c847b0bf2ec5`. Version 1.3 below is a local release candidate, not a published Hub update. See [release notes](CHANGELOG.md), [release preparation](RELEASING.md) and the [data disclosure](PRIVACY.md).
+Huntmaster supplies own-account observations and boss encounter evidence to the Bosscape Huntmaster Discord Bot. The bot manages assignments, eligibility decisions, points and ranks. The currently published Plugin Hub release is version 1.3 at `5798fe2361bbe639f36912ce7768e91915caa8fe`. See [release notes](CHANGELOG.md), [release preparation](RELEASING.md) and the [data disclosure](PRIVACY.md).
 
 ## Using Huntmaster
 
-### Version 1.3 release candidate
+### Version 1.3
 
 The Current Hunt sidebar uses RuneLite's bundled fonts, packaged RuneScape game
 renders from the OSRS Wiki, and a progress bar driven only by bot-confirmed KC.
@@ -35,14 +35,14 @@ and response have a ten-second bound to tolerate short server delays.
 
 Recruitment activity preferences retain their saved keys and off defaults, with
 duplicate checkbox confirmation prompts removed. The Plugin Hub installation
-disclosure remains required and unchanged. This candidate has not been published;
-development-client gameplay acceptance and Plugin Hub review remain separate.
+disclosure remains required and unchanged. Version 1.3 was published through the
+Plugin Hub on October 21, 2026.
 
 The published version 1.2 introduced exact-level completion evidence, including separate levels 8, 9, 10 and higher. Version 1.3 preserves that protocol. Lower levels are reported without a credit decision. Delivery requires a compatible bot advertising `doomEvidenceVersion: 1`; Doom assignments remain disabled. See [Doom evidence and live validation](DOOM_EVIDENCE.md). Production bot protocol support is deployed; natural Doom/Awakened gameplay validation remains outstanding.
 
 The sidebar retains a compact connection indicator, including registration and
 required-update guidance. A report receipt alone never advances the KC bar.
-The packaged build identifier for this candidate is `collector-v2-release-1`
+The packaged build identifier for this release is `collector-v2-release-1`
 (`ReleaseInfo.BUILD`), a release identifier rather than a Git hash. Version and build
 are also visible in the collapsed About Huntmaster settings section.
 Reports retain their original capture-policy revision across retries.
@@ -98,7 +98,7 @@ boss/rank artwork and Java 11 bytecode without development-folder fallback. Use
 `-PpackagedJar=/path/to/plugin.jar` to check a separately built artifact. See
 [release preparation](RELEASING.md) for the standard-package/submission distinction.
 
-The Doom/Awakened protocol is part of the published 1.2 baseline; the 1.3 UI/settings/hardening update is not yet published. Relevant encounter, account-switch, retry and old-bot protections remain covered by regression checks. Natural Doom/Awakened timing remains a separate validation limit. The authoritative [Plugin Hub descriptor](https://github.com/runelite/plugin-hub/blob/master/plugins/huntmaster) identifies the published commit. An update request binds that descriptor to the exact reviewed candidate commit; this repository keeps no duplicate marker.
+The Doom/Awakened protocol was introduced in version 1.2, and the 1.3 UI/settings/hardening update preserves it. Relevant encounter, account-switch, retry and old-bot protections remain covered by regression checks. Natural Doom/Awakened timing remains a separate validation limit. The authoritative [Plugin Hub descriptor](https://github.com/runelite/plugin-hub/blob/master/plugins/huntmaster) identifies the published commit. An update request binds that descriptor to the exact reviewed candidate commit; this repository keeps no duplicate marker.
 
 The bot independently checks published HiScores totals for accepted plugin credit. Ordinary progression remains immediate; unknown/delayed totals remain uncorroborated and contradictions request staff review. Ask Huntmaster staff if you need a verification record review. These checks add confidence, not cryptographic gameplay proof. High-value reward verification requires independent support or recorded staff approval under a separate reward policy.
 
@@ -127,7 +127,7 @@ normal/awakened DT2 personal completion totals with optional bounded encounterVa
 metadata. Structured reports include canonical encounter, variant and Doom facts.
 Version 1.3 removes the old local Tracking Status/Copy diagnostics display cache.
 See [the exact bot contract](ENCOUNTER_VARIANT_CONTRACT.md) and [Doom evidence](DOOM_EVIDENCE.md).
-The production bot and published 1.2 baseline support all three optional V1 capabilities. Natural Doom/Awakened gameplay validation remains outstanding. Doom credit is
+The production bot and published plugin support all three optional V1 capabilities. Natural Doom/Awakened gameplay validation remains outstanding. Doom credit is
 still disabled. RuneLite observes; the bot decides Hunt credit, matching and rewards.
 ### Doom per-level evidence
 
@@ -138,4 +138,4 @@ version 1 and aggregate observation remain. Additional `doomCounters` serializat
 requires optional `doomCounterEvidenceVersion: 1` from a capable bot; older bots
 receive the existing payload. See `DOOM_EVIDENCE.md` for the complete contract,
 counter IDs, duplicate identity and remaining live-gameplay checks. This source
-is included in the published 1.2 protocol; the current 1.3 candidate does not enable Doom Hunt credit.
+was published in the 1.2 protocol; version 1.3 does not enable Doom Hunt credit.

@@ -1,13 +1,13 @@
 # Huntmaster release preparation
 
-Current candidate: version **1.3**, build **collector-v2-release-1**. The published
-baseline is version 1.2 at `ccd4b442a82315da87ff57556ce8c847b0bf2ec5`.
+Latest published version: **1.3**, build **collector-v2-release-1**, at
+`5798fe2361bbe639f36912ce7768e91915caa8fe`.
 
 ## Verify the candidate
 
 1. Refresh RuneLite dependencies after a client update, then run `gradlew.bat
    --refresh-dependencies test build` (or `./gradlew` on other systems). Keep
-   `latest.release`; offline mode reuses cached versions. This candidate was
+   `latest.release`; offline mode reuses cached versions. Version 1.3 was
    checked with RuneLite 1.13.3. Java compilation targets Java 11 bytecode.
 2. Use `gradlew.bat runPublic` for a dev client against the hosted HTTPS bot.
    `run` instead selects the local development bot. Preserve existing settings

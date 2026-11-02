@@ -1,8 +1,8 @@
 # Encounter-variant V1 release contract
 
 Introduced in published plugin version 1.2, build `collector-v2-variants-1`,
-at `ccd4b442a82315da87ff57556ce8c847b0bf2ec5`. The local version 1.3 candidate,
-build `collector-v2-release-1`, preserves this protocol and is not yet published.
+at `ccd4b442a82315da87ff57556ce8c847b0bf2ec5`. Published version 1.3,
+build `collector-v2-release-1`, preserves this protocol.
 Production bot protocol support is deployed. Natural Doom/Awakened gameplay validation
 remains outstanding; automated/source verification does not establish live timing.
 RuneLite observes; the bot decides. Doom Hunt credit remains disabled.
@@ -35,7 +35,7 @@ Optional top-level JSON string `encounterVariant`: exactly `NORMAL` or `AWAKENED
 Allowed only for the four canonical bosses above. Enum and serializer enforce bounded values
 and boss context. No arbitrary values, four booleans, new canonical names or raw NPC gameplay IDs.
 Existing schemaVersion 1, collectorVersion 2 and `/api/runelite/observations` route remain.
-Current candidate build marker: `collector-v2-release-1` (published 1.2: `collector-v2-variants-1`). Existing UUID, assignment UUID/null, RSN, timing,
+Current build marker: `collector-v2-release-1` (version 1.2: `collector-v2-variants-1`). Existing UUID, assignment UUID/null, RSN, timing,
 capture status, detector type/version, policy revision and diagnostics remain.
 
 Dedicated-counter reports retain `detectorType: STANDARD_NPC` and existing signals:
