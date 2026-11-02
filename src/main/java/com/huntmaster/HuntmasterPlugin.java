@@ -356,6 +356,8 @@ public class HuntmasterPlugin extends Plugin
 	private boolean membershipDenied;
 
 	private static final String REPORT_QUEUE_KEY = "pendingEncounterReports";
+	private static final String REPORT_QUEUE_BACKUP_KEY = "damagedEncounterReports";
+	private boolean heldNoticeShown;
 
 	// ==================================================
 	// SESSION STATE
@@ -602,6 +604,7 @@ public class HuntmasterPlugin extends Plugin
 	{
 		publishDashboard();
 		showLinkNotice();
+		diagnostic(this::showHeldReportNotice);
         encounterCapture.windows(collectionPolicy.windows(System.currentTimeMillis()));
         encounterCapture.revision(collectionPolicy.revision(System.currentTimeMillis()));
         diagnostic(this::updateCollectionHealth);
@@ -1891,7 +1894,7 @@ public void onRuneScapeProfileChanged(
 	{
 		for (EncounterReportQueue.Entry entry : reportQueue.snapshot())
 		{
-			if (!entry.creditCandidate) continue;
+			if (!entry.creditCandidate || entry.heldAt != 0) continue;
 			if (entry.delivery.belongsTo(assignmentRsn)) return true;
 		}
 		return false;
@@ -1945,6 +1948,16 @@ public void onRuneScapeProfileChanged(
 			|| linkNoticeShown || client.getGameState() != GameState.LOGGED_IN || client.getLocalPlayer() == null) return;
 		linkNoticeShown = true;
 		client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "Huntmaster could not confirm your Bosscape registration or membership right now. Tracking is paused; saved reports are preserved and the connection will retry. If this continues, check your registration in Bosscape Discord.", null);
+	}
+	private void showHeldReportNotice()
+	{
+		Player player = client.getLocalPlayer();
+		if (!running || player == null || client.getGameState() != GameState.LOGGED_IN) return;
+		int held = reportQueue.held(player.getName());
+		if (held == 0) heldNoticeShown = false;
+		if (held == 0 || heldNoticeShown) return;
+		heldNoticeShown = true;
+		client.addChatMessage(ChatMessageType.GAMEMESSAGE, "", "Huntmaster could not deliver " + held + " saved kill report(s). They are being kept and retried automatically, and new kills are still being tracked. If this continues, ask in Bosscape Discord.", null);
 	}
 
 	private final java.util.Map<String,ChestRunState> chestStates=new java.util.HashMap<>();
@@ -2096,30 +2109,44 @@ public void onRuneScapeProfileChanged(
 	{
 		savedReportRevision = -1;
 		reportQueue.clear();
+		boolean damaged = false;
 		// Restore saved delivery events regardless of the retired sharing preference.
+		String saved = configManager.getConfiguration(HUNTMASTER_CONFIG_GROUP, REPORT_QUEUE_KEY);
+		try
 		{
-			String saved = configManager.getConfiguration(HUNTMASTER_CONFIG_GROUP, REPORT_QUEUE_KEY);
-			try
+			if (saved != null)
 			{
-				if (saved != null)
+				EncounterReportQueue.Entry[] entries = gson.fromJson(saved, EncounterReportQueue.Entry[].class);
+				if (entries != null) for (EncounterReportQueue.Entry entry : entries)
 				{
-					EncounterReportQueue.Entry[] entries = gson.fromJson(saved, EncounterReportQueue.Entry[].class);
-					if (entries != null) for (EncounterReportQueue.Entry entry : entries)
+					try
 					{
-						if (entry == null) continue;
-						try
-						{
-							JsonObject body = gson.fromJson(entry.payload, JsonObject.class);
-							if (!UUID.fromString(entry.id).toString().equals(body.get("reportId").getAsString())) continue;
-							reportQueue.add(entry.id, entry.payload, entry.createdAt, System.currentTimeMillis(), isBetaCredit(body));
-						}
-						catch (RuntimeException ex) { log.debug("Huntmaster ignored malformed diagnostic queue entry", ex); }
+						JsonObject body = gson.fromJson(entry.payload, JsonObject.class);
+						if (!UUID.fromString(entry.id).toString().equals(body.get("reportId").getAsString())) { damaged = true; continue; }
+						boolean credit = isBetaCredit(body);
+						if (!reportQueue.restore(entry, System.currentTimeMillis(), credit) && credit) damaged = true;
 					}
+					catch (RuntimeException ex) { damaged = true; log.debug("Huntmaster ignored malformed diagnostic queue entry", ex); }
 				}
 			}
-			catch (RuntimeException ex) { log.debug("Huntmaster ignored malformed diagnostic queue", ex); }
 		}
+		catch (RuntimeException ex) { damaged = true; log.debug("Huntmaster ignored malformed diagnostic queue", ex); }
+		if (damaged && !backupDamagedReports(saved)) return;
 		saveEncounterReports();
+	}
+	// Rewriting the queue would otherwise erase whatever could not be restored. The latest copy wins.
+	private boolean backupDamagedReports(String saved)
+	{
+		try
+		{
+			configManager.setConfiguration(HUNTMASTER_CONFIG_GROUP, REPORT_QUEUE_BACKUP_KEY, saved);
+			return true;
+		}
+		catch (RuntimeException ex)
+		{
+			log.warn("Huntmaster could not back up damaged saved reports", ex);
+			return false;
+		}
 	}
 	private void updateEncounterReports()
 	{
@@ -2135,7 +2162,12 @@ public void onRuneScapeProfileChanged(
 		if (entry == null) return;
 		String reportRoute = entry.delivery.route;
 		if (reportRoute == null || !entry.delivery.readableAccount)
-		{ reportQueue.acknowledge(entry.id); saveEncounterReports(); return; }
+		{
+			if (entry.creditCandidate) reportQueue.reject(entry, now, true);
+			else reportQueue.acknowledge(entry.id);
+			saveEncounterReports();
+			return;
+		}
 		if (!entry.delivery.belongsTo(reportPlayer.getName()))
 		{
 			entry.nextAttemptAt = System.currentTimeMillis() + 60000;
@@ -2149,8 +2181,14 @@ public void onRuneScapeProfileChanged(
 			entry.inFlight = false;
 			boolean accepted = false;
 			boolean completed = false;
+			String rejection = null;
 			try
 			{
+				if (status == 400)
+				{
+					JsonObject result = gson.fromJson(response, JsonObject.class);
+					if (result != null && result.has("status")) rejection = result.get("status").getAsString();
+				}
 				if (status == 200)
 				{
 					JsonObject result = gson.fromJson(response, JsonObject.class);
@@ -2172,11 +2210,20 @@ public void onRuneScapeProfileChanged(
 			catch (RuntimeException ex) { log.debug("Huntmaster invalid diagnostic acknowledgement", ex); }
             if (accepted) collectionDelivered++; else collectionDeliveryFailures++;
 			// Preserve old-bot 404 compatibility; credit candidates remain durable.
-			if (accepted || status == 400 || status == 409 || status == 413) reportQueue.acknowledge(entry.id);
+			boolean rejected = status == 400 || status == 409 || status == 413;
+			boolean expired = status == 400 && "report_expired".equals(rejection);
+			if (expired) log.warn("Huntmaster dropped encounter report {}: the bot says it is too old to accept", entry.id);
+			if (accepted || expired || (!entry.creditCandidate && rejected)) reportQueue.acknowledge(entry.id);
 			else
 			{
 				entry.nextAttemptAt = System.currentTimeMillis() + 60_000L;
-				if (entry.creditCandidate) markConnectionFailure();
+				if (entry.creditCandidate)
+				{
+					// A report the bot keeps rejecting is not an outage and must not stall tracking.
+					if (entry.heldAt != 0 || !HttpResponsePolicy.isTemporary(status))
+						reportQueue.reject(entry, System.currentTimeMillis(), rejected);
+					if (entry.heldAt == 0) markConnectionFailure();
+				}
 			}
 			if (completed) { assignmentSyncRequired = true; refreshAssignment(); }
 			log.debug("Huntmaster encounter report {} response {} accepted={}", entry.id, status, accepted);

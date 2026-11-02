@@ -76,6 +76,38 @@ public class EncounterReportQueueTest
 		assertFalse(q.add("future", "{}", 1001, 1000));
 		assertFalse(q.add("old", "{}", 1000, 1000 + EncounterReportQueue.RETENTION_MS));
 	}
+	@Test public void heldCreditWaitsThenExpiresAfterThirtyDays()
+	{
+		EncounterReportQueue q = new EncounterReportQueue();
+		assertTrue(q.add("credit", "{}", 1000, 1000, true));
+		EncounterReportQueue.Entry entry = q.snapshot()[0];
+		long revision = q.revision();
+		q.reject(entry, 2000, false);
+		q.reject(entry, 2000, false);
+		assertEquals(0, entry.heldAt);
+		assertEquals(0, entry.nextAttemptAt);
+		q.reject(entry, 3000, false);
+		assertEquals(3000, entry.heldAt);
+		assertTrue(q.revision() > revision);
+		assertNull(q.next(3000));
+		assertEquals("credit", q.next(3000 + EncounterReportQueue.HELD_RETRY_MS).id);
+		q.prune(3000 + EncounterReportQueue.HELD_RETENTION_MS - 1);
+		assertEquals(1, q.snapshot().length);
+		q.prune(3000 + EncounterReportQueue.HELD_RETENTION_MS);
+		assertEquals(0, q.snapshot().length);
+	}
+	@Test public void restoreKeepsFutureCreditButNotFutureDiagnostics()
+	{
+		EncounterReportQueue.Entry saved = new EncounterReportQueue.Entry();
+		saved.id = "report"; saved.payload = "{}"; saved.createdAt = 5000; saved.rejections = 2; saved.heldAt = 900; saved.nextAttemptAt = 9000;
+		EncounterReportQueue q = new EncounterReportQueue();
+		assertFalse(q.restore(saved, 1000, false));
+		assertTrue(q.restore(saved, 1000, true));
+		EncounterReportQueue.Entry restored = q.snapshot()[0];
+		assertEquals(2, restored.rejections);
+		assertEquals(900, restored.heldAt);
+		assertEquals(0, restored.nextAttemptAt);
+	}
 	@Test public void explicitlyClearingQueueRemovesEntries()
 	{
 		EncounterReportQueue q = new EncounterReportQueue(); q.add("one", "{}", 1000, 1000);

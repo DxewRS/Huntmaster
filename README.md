@@ -84,6 +84,8 @@ Assignment responses may extend capture windows for packaged bosses using expiri
 
 While logged in, healthy connections check service health every 30 seconds and assignments every five seconds. Logged-out clients make no routine requests. Bot verification decisions are polled only with an active assignment; account snapshots are sampled at most once per minute. Finalized evidence attempts delivery immediately through the existing single-request queue. Reports that finalize while another request is in flight wait for the five-second worker; acknowledgements do not rapidly drain old backlogs. Failed reports retry after at least 60 seconds once connection and assignment state recover. Responses are bounded to 64 KiB. Retries retain report IDs, and temporary rate limits do not discard legacy events.
 
+A credit report the bot rejects (400, 409 or 413), that cannot be routed, or that fails three times for any reason other than an outage or rate limit is held: it stays saved, retries hourly, no longer blocks connection recovery, and is dropped 30 days after being held. The bot's `report_expired` answer is final and removes the report. If saved reports cannot be fully read at startup, the original saved text is copied to a backup setting first.
+
 New collection pauses when the saved report backlog reaches 1,000 reports or 8 MiB, and resumes as delivery clears space. Already captured evidence is preserved, so those thresholds are collection limits rather than hard limits on existing saved data. Checkpoint writes drain on shutdown. All plugin filesystem access uses RuneLite's `net.runelite.client.util.Filepath` API; packaged resources use classpath streams.
 
 ## Development and submission

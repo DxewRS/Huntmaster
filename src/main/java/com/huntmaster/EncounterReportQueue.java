@@ -9,6 +9,10 @@ final class EncounterReportQueue
 	static final long RETENTION_MS = 24 * 60 * 60 * 1000L;
 	static final int MAX_REPORTS = 100;
 	static final int MAX_BYTES = 1024 * 1024;
+	// Held credit stops blocking tracking but stays saved and retries slowly.
+	static final int HOLD_AFTER_REJECTIONS = 3;
+	static final long HELD_RETRY_MS = 60 * 60 * 1000L;
+	static final long HELD_RETENTION_MS = 30 * RETENTION_MS;
 	static final class Entry
 	{
 		String id;
@@ -16,6 +20,8 @@ final class EncounterReportQueue
 		long createdAt;
 		long nextAttemptAt;
 		boolean creditCandidate;
+		int rejections;
+		long heldAt;
 		transient boolean inFlight;
 		transient EncounterReportMetadata delivery;
 	}
@@ -33,8 +39,21 @@ final class EncounterReportQueue
 	}
 	boolean add(String id, String payload, long createdAt, long now, boolean creditCandidate)
 	{
+		return createdAt <= now && insert(id, payload, createdAt, now, creditCandidate);
+	}
+	// Saved credit stays deliverable even if the PC clock has since moved backwards.
+	boolean restore(Entry saved, long now, boolean creditCandidate)
+	{
+		if ((!creditCandidate && saved.createdAt > now) || !insert(saved.id, saved.payload, saved.createdAt, now, creditCandidate)) return false;
+		Entry entry = entries.get(saved.id);
+		entry.rejections = saved.rejections;
+		entry.heldAt = saved.heldAt;
+		return true;
+	}
+	private boolean insert(String id, String payload, long createdAt, long now, boolean creditCandidate)
+	{
 		prune(now);
-		if (id == null || payload == null || createdAt <= 0 || createdAt > now || (!creditCandidate && now - createdAt >= RETENTION_MS)
+		if (id == null || payload == null || createdAt <= 0 || (!creditCandidate && now - createdAt >= RETENTION_MS)
 			|| entries.containsKey(id)) return false;
 		int size = payload.getBytes(StandardCharsets.UTF_8).length;
 		if (size > 8192) return false;
@@ -56,7 +75,8 @@ final class EncounterReportQueue
 		while (iterator.hasNext())
 		{
 			Entry entry = iterator.next();
-			if (!entry.creditCandidate && now - entry.createdAt >= RETENTION_MS)
+			if ((!entry.creditCandidate && now - entry.createdAt >= RETENTION_MS)
+				|| (entry.heldAt != 0 && now - entry.heldAt >= HELD_RETENTION_MS))
 			{
 				iterator.remove();
 				removed(entry);
@@ -78,6 +98,19 @@ final class EncounterReportQueue
 		payloadBytes -= entry.payload.getBytes(StandardCharsets.UTF_8).length;
 		if (!entry.creditCandidate) diagnosticCount--;
 		revision++;
+	}
+	void reject(Entry entry, long now, boolean holdNow)
+	{
+		entry.rejections++;
+		if (entry.heldAt == 0 && (holdNow || entry.rejections >= HOLD_AFTER_REJECTIONS)) entry.heldAt = now;
+		if (entry.heldAt != 0) entry.nextAttemptAt = now + HELD_RETRY_MS;
+		revision++;
+	}
+	int held(String account)
+	{
+		int count = 0;
+		for (Entry entry : entries.values()) if (entry.heldAt != 0 && entry.delivery.belongsTo(account)) count++;
+		return count;
 	}
 	void acknowledge(String id)
 	{

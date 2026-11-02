@@ -52,27 +52,8 @@ public class CounterIdentityRoutingTest
         ImmediateReportDeliveryTest.set(h.plugin, "reliabilityRsn", "Example");
         ImmediateReportDeliveryTest.set(h.plugin, "assignedBoss", assignment);
         ImmediateReportDeliveryTest.set(h.plugin, "assignmentId", assignment == null ? null : h.assignment);
-        // A real, unloaded ConfigManager returns unknown profile counters. Its scheduler
-        // is inert so this fixture neither starts threads nor touches player settings.
-        java.lang.reflect.Constructor<?> constructor = net.runelite.client.config.ConfigManager.class.getDeclaredConstructors()[0];
-        constructor.setAccessible(true);
-        Object[] dependencies = new Object[constructor.getParameterCount()];
-        Class<?>[] types = constructor.getParameterTypes();
-        for (int i = 0; i < types.length; i++)
-        {
-            if (types[i] == java.util.concurrent.ScheduledExecutorService.class)
-                dependencies[i] = java.lang.reflect.Proxy.newProxyInstance(types[i].getClassLoader(), new Class[]{types[i]}, (p, m, a) -> null);
-            else if (types[i] == Gson.class) dependencies[i] = new Gson();
-            else if (types[i] == net.runelite.client.eventbus.EventBus.class) dependencies[i] = new net.runelite.client.eventbus.EventBus();
-        }
-        Object config = constructor.newInstance(dependencies);
-        Class<?> dataType = Class.forName("net.runelite.client.config.ConfigData");
-        java.lang.reflect.Constructor<?> dataConstructor = dataType.getDeclaredConstructor(java.io.File.class);
-        dataConstructor.setAccessible(true);
-        java.lang.reflect.Field profile = net.runelite.client.config.ConfigManager.class.getDeclaredField("configProfile");
-        profile.setAccessible(true);
-        profile.set(config, dataConstructor.newInstance(new java.io.File(System.getProperty("huntmaster.testHome"), "routing.properties")));
-        ImmediateReportDeliveryTest.set(h.plugin, "configManager", config);
+        // A real, unloaded ConfigManager returns unknown profile counters.
+        ImmediateReportDeliveryTest.set(h.plugin, "configManager", ImmediateReportDeliveryTest.inertConfig("routing.properties"));
         return h;
     }
 

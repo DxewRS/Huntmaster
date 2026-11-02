@@ -1,5 +1,16 @@
 # Huntmaster release notes
 
+## Unreleased
+
+- A kill report the bot keeps refusing no longer stalls tracking. After an
+  immediate rejection or three failed attempts it is held: saved, retried hourly
+  for up to 30 days, excluded from outage recovery and announced once in chat.
+  Outages and rate limits never hold a report.
+- Reports the bot rejects are no longer deleted, except when it answers
+  `report_expired`, which is final. Diagnostic-only reports keep their rules.
+- Startup keeps held state and kill reports dated ahead of the PC clock. A saved
+  queue that cannot be fully read is copied to a backup setting before rewriting.
+
 ## 1.3 — published October 21, 2026 at `5798fe2361bbe639f36912ce7768e91915caa8fe`
 
 - Current Hunt sidebar with bundled RuneScape boss renders, confirmed-KC progress,

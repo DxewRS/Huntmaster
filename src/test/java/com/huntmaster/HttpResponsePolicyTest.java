@@ -12,6 +12,10 @@ public class HttpResponsePolicyTest
   for(int status:new int[]{-1,401,403,408,425,429,500,502,503,504})assertFalse(HttpResponsePolicy.isPermanentRejection(status));
   for(int status:new int[]{400,404,409,413,422})assertTrue(HttpResponsePolicy.isPermanentRejection(status));
  }
+ @Test public void onlyOutagesAndRateLimitsSayNothingAboutTheReport(){
+  for(int status:new int[]{-1,408,429,502,503,504})assertTrue(HttpResponsePolicy.isTemporary(status));
+  for(int status:new int[]{200,400,404,409,413,422,500})assertFalse(HttpResponsePolicy.isTemporary(status));
+ }
  @Test public void smallUtf8ResponsesAreRead() throws Exception {
   try(ResponseBody body=ResponseBody.create(MediaType.parse("application/json"),"{\"name\":\"\u00e9\"}")){
    assertEquals("{\"name\":\"\u00e9\"}",HttpResponsePolicy.read(body));

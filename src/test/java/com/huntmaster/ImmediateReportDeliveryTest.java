@@ -29,12 +29,36 @@ public class ImmediateReportDeliveryTest
         public boolean isCanceled(){return cancelled;}
         public PendingCall clone(){return new PendingCall(request);}
         public okio.Timeout timeout(){return new okio.Timeout();}
-        void respond(String body)throws Exception {callback.onResponse(this,new Response.Builder().request(request).protocol(Protocol.HTTP_1_1).code(200).message("OK").body(ResponseBody.create(MediaType.parse("application/json"),body)).build());}
+        void respond(String body)throws Exception {respond(200,body);}
+        void respond(int status,String body)throws Exception {callback.onResponse(this,new Response.Builder().request(request).protocol(Protocol.HTTP_1_1).code(status).message("OK").body(ResponseBody.create(MediaType.parse("application/json"),body)).build());}
+    }
+    /** A real, unloaded ConfigManager. Its scheduler is inert so this fixture neither starts threads nor touches player settings. */
+    static net.runelite.client.config.ConfigManager inertConfig(String file)throws Exception
+    {
+        Constructor<?> constructor=net.runelite.client.config.ConfigManager.class.getDeclaredConstructors()[0];
+        constructor.setAccessible(true);
+        Object[] dependencies=new Object[constructor.getParameterCount()];
+        Class<?>[] types=constructor.getParameterTypes();
+        for(int i=0;i<types.length;i++)
+        {
+            if(types[i]==java.util.concurrent.ScheduledExecutorService.class)dependencies[i]=Proxy.newProxyInstance(types[i].getClassLoader(),new Class[]{types[i]},(p,m,a)->null);
+            else if(types[i]==Gson.class)dependencies[i]=new Gson();
+            else if(types[i]==net.runelite.client.eventbus.EventBus.class)dependencies[i]=new net.runelite.client.eventbus.EventBus();
+        }
+        Object config=constructor.newInstance(dependencies);
+        Class<?> dataType=Class.forName("net.runelite.client.config.ConfigData");
+        Constructor<?> dataConstructor=dataType.getDeclaredConstructor(java.io.File.class);
+        dataConstructor.setAccessible(true);
+        Field profile=net.runelite.client.config.ConfigManager.class.getDeclaredField("configProfile");
+        profile.setAccessible(true);
+        profile.set(config,dataConstructor.newInstance(new java.io.File(System.getProperty("huntmaster.testHome"),file)));
+        return (net.runelite.client.config.ConfigManager)config;
     }
     static final class Harness
     {
         final HuntmasterPlugin plugin=new HuntmasterPlugin();
         final List<PendingCall> calls=new ArrayList<>();
+        final List<String> chat=new ArrayList<>();
         final EncounterReportQueue queue;
         final AssignmentDashboardState dashboard;
         GameState gameState=GameState.LOGGED_IN;
@@ -42,7 +66,7 @@ public class ImmediateReportDeliveryTest
         Harness()throws Exception
         {
             Player player=(Player)Proxy.newProxyInstance(Player.class.getClassLoader(),new Class[]{Player.class},(p,m,a)->m.getName().equals("getName")?"Example":null);
-            Client client=(Client)Proxy.newProxyInstance(Client.class.getClassLoader(),new Class[]{Client.class},(p,m,a)->m.getName().equals("getLocalPlayer")?player:m.getName().equals("getGameState")?gameState:m.getName().equals("getTickCount")?125:null);
+            Client client=(Client)Proxy.newProxyInstance(Client.class.getClassLoader(),new Class[]{Client.class},(p,m,a)->{if(m.getName().equals("addChatMessage"))chat.add((String)a[2]);return m.getName().equals("getLocalPlayer")?player:m.getName().equals("getGameState")?gameState:m.getName().equals("getTickCount")?125:null;});
             set(plugin,"client",client);set(plugin,"gson",new Gson());
             set(plugin,"clientThread",new ClientThread(){@Override public void invokeLater(Runnable r){r.run();}});
             set(plugin,"httpClient",new OkHttpClient(){@Override public Call newCall(Request r){PendingCall c=new PendingCall(r);calls.add(c);return c;}});

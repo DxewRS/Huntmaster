@@ -25,4 +25,9 @@ final class HttpResponsePolicy
     {
         return status == 400 || status == 404 || status == 409 || status == 413 || status == 422;
     }
+    /** Outages and rate limits say nothing about the report that was being sent. */
+    static boolean isTemporary(int status)
+    {
+        return status <= 0 || status == 408 || status == 429 || status == 502 || status == 503 || status == 504;
+    }
 }
