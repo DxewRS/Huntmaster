@@ -12,6 +12,8 @@ final class EncounterObservation
     String policyRevision="packaged-default";
 	static final int MAX_SIGNALS = 32;
 	static final int MAX_WINDOW_TICKS = 128;
+	static final int MAX_COUNTER_CHANGES = 6;
+	static final int MIN_COUNTER_OFFSET = -16;
 	enum SignalKind { DEATH, COMPLETION, ACTIVITY_COMPLETION, COUNTER, LOOT, DIAGNOSTIC }
 	enum CounterSource { KC_MESSAGE, RS_PROFILE, COMPLETION_VARP }
 	enum LootAttribution { MATCHING_ENCOUNTER, UNCERTAIN }
@@ -46,6 +48,19 @@ final class EncounterObservation
 		}
 	}
 
+	static final class CounterChange
+	{
+		final int varp, previous, current, tickOffset;
+		private CounterChange(int varp, int previous, int current, int tickOffset)
+		{
+			this.varp = varp; this.previous = previous; this.current = current; this.tickOffset = tickOffset;
+		}
+		private boolean sameAs(CounterChange other)
+		{
+			return varp == other.varp && previous == other.previous && current == other.current && tickOffset == other.tickOffset;
+		}
+	}
+
 	static final class Snapshot
 	{
         final String policyRevision;
@@ -69,6 +84,7 @@ final class EncounterObservation
 		final DoomLevelCounters.Observation doomCounter;
 		final EncounterVariant encounterVariant;
 		final List<Diagnostic> diagnostics;
+		final List<CounterChange> counterChanges;
 
 		private Snapshot(EncounterObservation record)
 		{
@@ -78,6 +94,7 @@ final class EncounterObservation
 			doomCounter = record.doomCounter;
 			encounterVariant = record.encounterVariant;
 			diagnostics = Collections.unmodifiableList(new ArrayList<>(record.diagnostics));
+			counterChanges = Collections.unmodifiableList(new ArrayList<>(record.counterChanges));
 			evidenceOnly = record.evidenceOnly;
 			reportId = record.reportId;
 			assignmentId = record.assignmentId;
@@ -161,6 +178,16 @@ final class EncounterObservation
 		for (Diagnostic d : diagnostics) if (d.source.equals(source) && d.tickOffset == offset && Objects.equals(d.total, total)) return;
 		diagnostics.add(new Diagnostic(source, offset, total));
 		latestTickOffset = Math.max(latestTickOffset, offset);
+	}
+	private final List<CounterChange> counterChanges = new ArrayList<>();
+	/** Raw totals for the bot. Unlike a signal this extends nothing: the window and verdict stay as they were. */
+	void recordCounterChange(VerificationCounters.Change change)
+	{
+		long offset = (long) change.tick - startTick;
+		if (closed || offset < MIN_COUNTER_OFFSET || offset >= windowTicks || counterChanges.size() >= MAX_COUNTER_CHANGES) return;
+		CounterChange added = new CounterChange(change.varp, change.previous, change.current, (int) offset);
+		for (CounterChange existing : counterChanges) if (existing.sameAs(added)) return;
+		counterChanges.add(added);
 	}
 	void recordChestState(int mask, int age, int tick) { if (!closed && chestState == null) chestState = new int[] {mask, age, offset(tick)}; }
 

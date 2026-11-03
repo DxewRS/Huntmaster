@@ -631,6 +631,7 @@ public class HuntmasterPlugin extends Plugin
 		showOutageNotices();
 		diagnostic(this::observeDt2Completions);
 		diagnostic(this::observeDoomCounters);
+		diagnostic(this::observeVerificationCounters);
 		if (!reportQueue.collectionBackpressured()) backlogNoticeShown = false;
 		else if (!backlogNoticeShown && client.getGameState() == GameState.LOGGED_IN)
 		{
@@ -2048,6 +2049,7 @@ public void onRuneScapeProfileChanged(
 	private void clearEncounterCaptures()
 	{
 		doomLevelCounters.reset(); doomCounterContext=null;
+		verificationCounters.reset(); verificationCounterContext=null;
 		dt2Completions.reset(); dt2Context=null;
 		chestStates.clear(); chestDetector=null;
 		encounterCapture.clear();
@@ -2067,6 +2069,20 @@ public void onRuneScapeProfileChanged(
 		observeProfileSnapshot(detector);
 	}
 	private final Dt2CompletionEvidence dt2Completions = new Dt2CompletionEvidence();
+	private final VerificationCounters verificationCounters=new VerificationCounters();
+	private String verificationCounterContext;
+	private void observeVerificationCounters()
+	{
+		Player player=client.getLocalPlayer();
+		String context=!reportsEnabled || client.getGameState()!=GameState.LOGGED_IN || player==null
+			? null : player.getName()+":"+configManager.getRSProfileKey();
+		if(!java.util.Objects.equals(context,verificationCounterContext))
+		{
+			verificationCounters.reset();encounterCapture.clearCounterChanges();
+			verificationCounterContext=context;
+		}
+		if(context!=null)verificationCounters.sample(client::getVarpValue,client.getTickCount(),canTrackNewKills(),encounterCapture::counterChange);
+	}
 	private final DoomLevelCounters doomLevelCounters=new DoomLevelCounters();
 	private String doomCounterContext;
 	private void observeDoomCounters()
@@ -2135,7 +2151,8 @@ public void onRuneScapeProfileChanged(
 		{
 			JsonObject report = EncounterReportCodec.encodeObservation(snapshot,
 				collectionPolicy.supportsEncounterVariants(System.currentTimeMillis()),
-				collectionPolicy.supportsDoomCounters(System.currentTimeMillis()));
+				collectionPolicy.supportsDoomCounters(System.currentTimeMillis()),
+				collectionPolicy.supportsVerificationCounters(System.currentTimeMillis()));
 			if (snapshot.doomState != null && Boolean.getBoolean("huntmaster.developmentMode"))
 				log.debug("Huntmaster Doom evidence: level={} extended={} messageTickOffset={} counterSignals={} capture={} report={}",
 					snapshot.doomState.completedLevel, snapshot.doomState.extended, snapshot.doomState.tickOffset,

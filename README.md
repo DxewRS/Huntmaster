@@ -11,6 +11,7 @@ The currently published Plugin Hub release is version 1.3 at `5798fe2361bbe639f3
 | [RELEASING.md](RELEASING.md) | Verifying a candidate and submitting it |
 | [DOOM_EVIDENCE.md](DOOM_EVIDENCE.md) | Doom evidence, counters and live validation |
 | [ENCOUNTER_VARIANT_CONTRACT.md](ENCOUNTER_VARIANT_CONTRACT.md) | The exact bot contract for encounter variants |
+| [VERIFICATION_COUNTER_CONTRACT.md](VERIFICATION_COUNTER_CONTRACT.md) | The exact bot contract for boss and global kill totals |
 | [BOSS_ARTWORK_SOURCES.json](BOSS_ARTWORK_SOURCES.json), [RANK_ARTWORK_SOURCES.json](RANK_ARTWORK_SOURCES.json) | Artwork sources and checksums |
 
 ## Getting started
@@ -65,6 +66,8 @@ Reports include killed-component flags for Barrows and Moons of Peril alongside 
 Phosani's Nightmare has a 20-tick default capture window; The Nightmare's default window is raised to at least 24 ticks. Assignment responses may extend windows for packaged bosses using expiring data (10–128 ticks, at most 64 entries, expiry within 24 hours). Invalid or expired settings fall back to packaged defaults, and unknown future entries are ignored. The server cannot supply code, endpoints, arbitrary varps, NPC aliases or chat patterns. Longer windows delay report finalization; immediate delivery after finalization is unchanged. Supported collection stays limited to the packaged boss identities, aliases and game-state sources, so unknown game content may need a plugin release.
 
 Exact-level Doom completion evidence and normal/awakened DT2 totals are reported as structured evidence. Delivery requires a bot advertising the matching optional capability, and older bots receive the existing payload. Doom assignments and Hunt credit remain disabled. See [Doom evidence](DOOM_EVIDENCE.md) and the [variant contract](ENCOUNTER_VARIANT_CONTRACT.md).
+
+Rises in the player's own boss totals and overall bosses-killed total travel with encounter reports when the bot advertises support. They let the bot recognise a kill whose chat counter was missed and refuse a second report of one kill. The plugin never treats a rise as a kill. See the [verification-counter contract](VERIFICATION_COUNTER_CONTRACT.md).
 
 The bot independently checks published HiScores totals for accepted plugin credit. Ordinary progression remains immediate; unknown or delayed totals remain uncorroborated and contradictions request staff review. Ask Huntmaster staff if you need a verification record review. These checks add confidence, not cryptographic gameplay proof. High-value reward verification requires independent support or recorded staff approval under a separate reward policy.
 

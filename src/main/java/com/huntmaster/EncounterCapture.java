@@ -28,10 +28,13 @@ final class EncounterCapture
 	private int lastDoomMessageTick = -1;
 	private int lastDoomLevel = -1;
 	private final java.util.Map<DoomLevelCounters.Source,String> lastDoomCounters=new java.util.EnumMap<>(DoomLevelCounters.Source.class);
-	EncounterCapture(Consumer<EncounterObservation.Snapshot> sink) { this(sink, true); }
- private EncounterCapture(Consumer<EncounterObservation.Snapshot> sink, boolean root) { this.sink=sink; channels=root?new java.util.LinkedHashMap<>():null; }
+	private final EncounterCapture root;
+	private final String channelKey;
+	private final java.util.ArrayDeque<VerificationCounters.Change> unclaimedChanges=new java.util.ArrayDeque<>();
+	EncounterCapture(Consumer<EncounterObservation.Snapshot> sink) { this.sink=sink; channels=new java.util.LinkedHashMap<>(); root=null; channelKey=null; }
+ private EncounterCapture(EncounterCapture root, String key) { sink=root.sink; channels=null; this.root=root; channelKey=key; }
  private EncounterCapture channel(BossDetector d) {
-  if (!channels.containsKey(d.getName())) { if(channels.size()>=96) throw new IllegalStateException("Capture capacity"); channels.put(d.getName(),new EncounterCapture(sink,false)); }
+  if (!channels.containsKey(d.getName())) { if(channels.size()>=96) throw new IllegalStateException("Capture capacity"); channels.put(d.getName(),new EncounterCapture(this,d.getName())); }
   selected=channels.get(d.getName()); selected.configuredWindow=windows.getOrDefault(d.getName(),configuredWindow); selected.policyRevision=policyRevision; return selected;
  }
  void select(BossDetector d) { if(channels!=null)channel(d); }
@@ -43,7 +46,7 @@ final class EncounterCapture
    String key=d.getName()+":"+variant.name();
    if(!channels.containsKey(key)) {
     if(channels.size()>=96)throw new IllegalStateException("Capture capacity");
-    channels.put(key,new EncounterCapture(sink,false));
+    channels.put(key,new EncounterCapture(this,key));
    }
    selected=channels.get(key);selected.configuredWindow=windows.getOrDefault(d.getName(),configuredWindow);
    selected.policyRevision=policyRevision;
@@ -93,6 +96,7 @@ final class EncounterCapture
 					current.recordLoot(event.tick, EncounterObservation.LootAttribution.UNCERTAIN);
 				else current.recordPrimary(event.kind, event.tick);
 			}
+			root.claimRecent(channelKey, current, tick);
 			records.add(current);
             current.policyRevision=policyRevision;
 			primarySeen = false;
@@ -229,6 +233,28 @@ final class EncounterCapture
 			verdict = true;
 		}
 	}
+	/** A rise joins the newest open record of its boss. It never opens a record or adds a signal. */
+	void counterChange(VerificationCounters.Change change)
+	{
+		if(channels==null)return;
+		boolean claimed=false;
+		for(java.util.Map.Entry<String,EncounterCapture> entry:channels.entrySet())
+			if(VerificationCounters.routes(entry.getKey(),change.varp))claimed|=entry.getValue().attach(change);
+		if(!claimed)unclaimedChanges.addLast(change);
+	}
+	private boolean attach(VerificationCounters.Change change)
+	{
+		for(int i=records.size()-1;i>=0;i--)
+			if(records.get(i).acceptsTick(change.tick)) { records.get(i).recordCounterChange(change); return true; }
+		return false;
+	}
+	private void claimRecent(String key, EncounterObservation record, int tick)
+	{
+		while(!unclaimedChanges.isEmpty() && tick-unclaimedChanges.peekFirst().tick>VerificationCounters.LEAD_TICKS)unclaimedChanges.removeFirst();
+		for(VerificationCounters.Change change:unclaimedChanges)
+			if(VerificationCounters.routes(key,change.varp))record.recordCounterChange(change);
+	}
+	void clearCounterChanges() { unclaimedChanges.clear(); }
 	void advance(int tick)
 	{
 		if(channels!=null){for(EncounterCapture c:channels.values())c.advance(tick);return;}
@@ -244,7 +270,7 @@ final class EncounterCapture
 	}
 	void interrupt(int tick, EncounterObservation.Reason reason)
 	{
-		if(channels!=null){for(EncounterCapture c:channels.values())c.interrupt(tick,reason);return;}
+		if(channels!=null){unclaimedChanges.clear();for(EncounterCapture c:channels.values())c.interrupt(tick,reason);return;}
 		for (EncounterObservation record : records)
 		{
 			record.interrupt(tick, reason);
@@ -255,5 +281,5 @@ final class EncounterCapture
 		lastDoomCounters.clear();
 		history.clear();
 	}
-	void clear() { if(channels!=null){for(EncounterCapture c:channels.values())c.clear();channels.clear();selected=null;return;} records.clear(); current = null; context = null; lastTick = -1; lastDoomMessageTick = -1; lastDoomLevel = -1; lastDoomCounters.clear(); history.clear(); }
+	void clear() { if(channels!=null){unclaimedChanges.clear();for(EncounterCapture c:channels.values())c.clear();channels.clear();selected=null;return;} records.clear(); current = null; context = null; lastTick = -1; lastDoomMessageTick = -1; lastDoomLevel = -1; lastDoomCounters.clear(); history.clear(); }
 }

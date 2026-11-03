@@ -15,6 +15,8 @@ final class CollectionPolicy
     private boolean doomEvidence;
     private boolean encounterVariants;
     private boolean doomCounters;
+    private boolean verificationCounters;
+    boolean supportsVerificationCounters(long now) { return supported && now < expiresAt && verificationCounters; }
     boolean supportsDoomCounters(long now) { return supportsDoomEvidence(now) && doomCounters; }
     boolean supportsEncounterVariants(long now) { return supported && now < expiresAt && encounterVariants; }
     boolean supportsDoomEvidence(long now) { return supported && now < expiresAt && doomEvidence; }
@@ -23,7 +25,7 @@ final class CollectionPolicy
     boolean updateRequired() { return updateRequired; }
     void accept(JsonObject value, long now)
     {
-        windows = Collections.emptyMap(); expiresAt = 0; supported = false;updateRequired=false;revision="packaged-default";doomEvidence=false;encounterVariants=false;doomCounters=false;
+        windows = Collections.emptyMap(); expiresAt = 0; supported = false;updateRequired=false;revision="packaged-default";verificationCounters=false;doomEvidence=false;encounterVariants=false;doomCounters=false;
         try
         {
             if(value!=null && value.has("minimumVersion") && value.get("minimumVersion").getAsInt()>2){updateRequired=true;return;}
@@ -49,6 +51,7 @@ final class CollectionPolicy
             doomEvidence = value.has("doomEvidenceVersion") && "1".equals(value.get("doomEvidenceVersion").getAsString());
             doomCounters = value.has("doomCounterEvidenceVersion") && "1".equals(value.get("doomCounterEvidenceVersion").getAsString());
             encounterVariants = value.has("encounterVariantVersion") && "1".equals(value.get("encounterVariantVersion").getAsString());
+            verificationCounters = value.has("verificationCounterVersion") && "1".equals(value.get("verificationCounterVersion").getAsString());
             if(value.has("revision") && value.get("revision").getAsString().matches("[a-zA-Z0-9_.-]{1,40}"))revision=value.get("revision").getAsString();
         }
         catch (RuntimeException ignored) { windows = Collections.emptyMap(); }

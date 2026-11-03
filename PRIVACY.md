@@ -48,3 +48,11 @@ are sent only with the bot's explicit optional counter capability. Structured
 counter fields retain the source/totals and message association; the report envelope
 includes your RSN. No raw chat or credentials are included. Existing report limits, retention and retry rules
 continue to apply; no new endpoint or periodic network request is introduced.
+## Verification counters
+
+The plugin reads a fixed packaged set of your own account's boss kill totals and its overall
+bosses-killed total once per game tick. When a total rises during a supported encounter, the
+report may include its fixed game variable ID, before/after values and relative tick offset,
+at most six per report. These fields are sent only to a bot advertising the matching optional
+capability, and they follow the existing report retention and retry rules. Nothing about other
+players is read. The totals are not displayed in-game and add no endpoint or periodic request.

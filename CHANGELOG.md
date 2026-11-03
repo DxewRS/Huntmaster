@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- Build `collector-v2-verification-1`: reports can carry rises in the player's own
+  boss totals and overall bosses-killed total, so the bot can recognise a kill whose
+  chat counter was missed or skipped, and can reject a second report of the same
+  kill. Sent only to a bot advertising `verificationCounterVersion: 1`. See the
+  [contract](VERIFICATION_COUNTER_CONTRACT.md). PRIVACY.md updated.
 - A kill report the bot keeps refusing no longer stalls tracking. After an
   immediate rejection or three failed attempts it is held: saved, retried hourly,
   excluded from outage recovery and backpressure, and announced once in chat.

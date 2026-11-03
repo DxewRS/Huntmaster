@@ -67,6 +67,11 @@ final class EncounterReportCodec
 	}
 	static JsonObject encodeObservation(EncounterObservation.Snapshot snapshot, boolean variantSupported, boolean doomCountersSupported)
 	{
+		return encodeObservation(snapshot,variantSupported,doomCountersSupported,true);
+	}
+	static JsonObject encodeObservation(EncounterObservation.Snapshot snapshot, boolean variantSupported, boolean doomCountersSupported,
+		boolean verificationCountersSupported)
+	{
 		JsonObject body = encodeSignals(snapshot);
 		if (snapshot.encounterVariant != null)
 		{
@@ -111,6 +116,21 @@ final class EncounterReportCodec
 			JsonObject countersState=new JsonObject(); countersState.addProperty("version",1);
 			JsonArray observations=new JsonArray(); observations.add(counter);
 			countersState.add("counters",observations); body.add("doomCounters",countersState);
+		}
+		if(!snapshot.counterChanges.isEmpty() && verificationCountersSupported)
+		{
+			JsonObject bossCounters=new JsonObject(); bossCounters.addProperty("version",1);
+			JsonArray changes=new JsonArray();
+			for(EncounterObservation.CounterChange change:snapshot.counterChanges)
+			{
+				JsonObject item=new JsonObject();
+				item.addProperty("varp",change.varp);
+				item.addProperty("previous",change.previous);
+				item.addProperty("current",change.current);
+				item.addProperty("tickOffset",change.tickOffset);
+				changes.add(item);
+			}
+			bossCounters.add("changes",changes); body.add("bossCounters",bossCounters);
 		}
         if (snapshot.chestState != null) {
             JsonObject chest = new JsonObject();
