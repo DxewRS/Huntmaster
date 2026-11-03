@@ -1,6 +1,6 @@
 # Verification-counter V1 contract
 
-Build `collector-v2-verification-1`, not yet published. RuneLite observes; the bot
+Build `collector-v2-verification-1`, version 1.4 release candidate, not yet published. RuneLite observes; the bot
 decides. A rise in a counter is never a completion verdict in the plugin.
 
 ## Detection

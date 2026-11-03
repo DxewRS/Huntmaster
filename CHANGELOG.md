@@ -1,6 +1,6 @@
 # Huntmaster release notes
 
-## Unreleased
+## 1.4 — release candidate, submitted for Plugin Hub review, not yet published
 
 - Build `collector-v2-verification-1`: reports can carry rises in the player's own
   boss totals and overall bosses-killed total, so the bot can recognise a kill whose

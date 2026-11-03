@@ -2,7 +2,7 @@
 
 Huntmaster supplies own-account observations and boss encounter evidence to the Bosscape Huntmaster Discord Bot. The bot manages assignments, eligibility decisions, points and ranks. RuneLite observes; the bot decides.
 
-The currently published Plugin Hub release is version 1.3 at `5798fe2361bbe639f36912ce7768e91915caa8fe`, build `collector-v2-release-1` (`ReleaseInfo.BUILD`, a release identifier rather than a Git hash). Version and build are also shown in the collapsed About Huntmaster settings section.
+The currently published Plugin Hub release is version 1.3 at `5798fe2361bbe639f36912ce7768e91915caa8fe`, build `collector-v2-release-1` (`ReleaseInfo.BUILD`, a release identifier rather than a Git hash). Version 1.4, build `collector-v2-verification-1`, is a release candidate under Plugin Hub review, not a published update. Version and build are also shown in the collapsed About Huntmaster settings section.
 
 | Document | Covers |
 | --- | --- |

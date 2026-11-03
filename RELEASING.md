@@ -1,7 +1,8 @@
 # Huntmaster release preparation
 
 Latest published version: **1.3**, build **collector-v2-release-1**, at
-`5798fe2361bbe639f36912ce7768e91915caa8fe`.
+`5798fe2361bbe639f36912ce7768e91915caa8fe`. Current candidate: version **1.4**,
+build **collector-v2-verification-1**, submitted for Plugin Hub review.
 
 ## Verify the candidate
 
